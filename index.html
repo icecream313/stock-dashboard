@@ -147,6 +147,43 @@
     border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; white-space: nowrap;
   }
   .ac-empty { padding: 13px 16px; color: var(--muted); font-size: 0.82rem; }
+  /* 포트폴리오 요약 바 */
+  .pf-bar {
+    display: flex; gap: 22px; flex-wrap: wrap; align-items: baseline;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 18px;
+  }
+  .pf-bar .pf-item .k { font-size: 0.72rem; color: var(--muted); }
+  .pf-bar .pf-item .v { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+  /* 관심종목 헤더 */
+  .wl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .wl-head h2 { margin-bottom: 0; }
+  .wl-head select, .wl-head button {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+  }
+  .wl-head select:hover, .wl-head button:hover { border-color: var(--accent); color: var(--text); }
+  .wl-head button { margin-left: auto; }
+  /* 보유 손익 표시 */
+  .holding-line { font-size: 0.76rem; margin-top: 7px; color: var(--muted); }
+  .holding-line b { font-size: 0.8rem; }
+  /* 보유 입력 폼 (모달 개요 탭) */
+  .holding-form {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 16px; margin-bottom: 14px;
+  }
+  .holding-form .hf-title { font-size: 0.8rem; font-weight: 700; margin-bottom: 9px; }
+  .holding-form .hf-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .holding-form input {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 7px 10px; font-size: 0.85rem; width: 130px;
+  }
+  .holding-form button {
+    background: var(--accent); border: none; color: #fff; border-radius: 7px;
+    padding: 7px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  .holding-form button.hf-del { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .holding-form .hf-result { font-size: 0.82rem; margin-top: 9px; }
   /* 카드 기간 수익률 */
   .rets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
   .ret-chip {
@@ -334,9 +371,24 @@
 <!-- ① 거시 지표 -->
 <div class="macro-strip" id="macro-strip"></div>
 
+<!-- 보유 포트폴리오 요약 (보유 정보 입력 시 표시) -->
+<div class="section" id="portfolio-section" hidden>
+  <div class="pf-bar" id="portfolio-bar"></div>
+</div>
+
 <!-- ② 관심종목 -->
 <div class="section">
-  <h2>⭐ 관심종목</h2>
+  <div class="wl-head">
+    <h2>⭐ 관심종목</h2>
+    <select id="wl-sort" title="정렬">
+      <option value="added">추가순</option>
+      <option value="chg">등락률순</option>
+      <option value="ret1m">1개월 수익률순</option>
+      <option value="pl">보유 수익률순</option>
+      <option value="name">이름순</option>
+    </select>
+    <button id="share-btn" title="관심종목 목록을 링크로 복사 — 폰 등 다른 기기에서 열면 그대로 가져옵니다">📤 목록 공유</button>
+  </div>
   <div class="add-bar">
     <div class="ac-wrap">
       <input id="symbol-input" type="text" placeholder="종목 이름이나 코드로 검색 — 예: 삼성전자, 카카오, NVDA, 테슬라" autocomplete="off" />
@@ -396,6 +448,32 @@
 </div>
 
 <script>
+// 구형 모바일 브라우저 호환 (iOS 15·구형 안드로이드는 AbortSignal.timeout 미지원)
+if (!AbortSignal.timeout) {
+  AbortSignal.timeout = ms => {
+    const c = new AbortController();
+    setTimeout(() => c.abort(new DOMException('timeout', 'TimeoutError')), ms);
+    return c.signal;
+  };
+}
+// HTML 이스케이프 (종목명 등 외부 데이터 표시용)
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// 만료된 시세/재무 캐시 정리 (localStorage 무한 증식 방지)
+(() => {
+  const now = Date.now(), DAY = 24 * 60 * 60 * 1000;
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (!/^(yf:|yfs:|nv:)/.test(k)) continue;
+    try {
+      const c = JSON.parse(localStorage.getItem(k));
+      if (!c || !c.t || now - c.t > DAY) localStorage.removeItem(k);
+    } catch (e) { localStorage.removeItem(k); }
+  }
+})();
+
 // ───────────────────────── 설정 ─────────────────────────
 const STORAGE_KEY = 'my-watchlist-v2';
 const DEFAULT_LIST = [
@@ -404,15 +482,19 @@ const DEFAULT_LIST = [
   { symbol: 'NVDA',      name: '엔비디아', reuters: 'NVDA.O' }
 ];
 const MACRO = [
-  { symbol: '^KS11', label: '코스피',      fmt: 'num'  },
-  { symbol: '^GSPC', label: 'S&P 500',     fmt: 'num'  },
-  { symbol: '^IXIC', label: '나스닥',      fmt: 'num'  },
-  { symbol: 'KRW=X', label: '원/달러',     fmt: 'krw'  },
-  { symbol: '^TNX',  label: '미국채 10년', fmt: 'pct'  },
-  { symbol: 'CL=F',  label: 'WTI 유가',    fmt: 'usd'  },
-  { symbol: 'GC=F',  label: '금',          fmt: 'usd'  },
-  { symbol: '^VIX',  label: 'VIX',         fmt: 'num'  }
+  { symbol: '^KS11',   label: '코스피',      fmt: 'num' },
+  { symbol: '^KQ11',   label: '코스닥',      fmt: 'num' },
+  { symbol: '^GSPC',   label: 'S&P 500',     fmt: 'num' },
+  { symbol: '^IXIC',   label: '나스닥',      fmt: 'num' },
+  { symbol: '^DJI',    label: '다우존스',    fmt: 'num' },
+  { symbol: 'KRW=X',   label: '원/달러',     fmt: 'krw' },
+  { symbol: '^TNX',    label: '미국채 10년', fmt: 'pct' },
+  { symbol: 'CL=F',    label: 'WTI 유가',    fmt: 'usd' },
+  { symbol: 'GC=F',    label: '금',          fmt: 'usd' },
+  { symbol: 'BTC-USD', label: '비트코인',    fmt: 'usd' },
+  { symbol: '^VIX',    label: 'VIX',         fmt: 'num' }
 ];
+let usdkrw = null; // 원/달러 환율 — 미국 보유종목 원화 환산용
 // CORS 프록시 폴백 체인 (정적 페이지에서 외부 API 호출용)
 // corsproxy: 빠르지만 네이버 차단 / allorigins: 전체 지원, 가끔 과부하
 // corsfix·jina: 네이버 포함 전체 지원 / codetabs: 최후 보루
@@ -549,6 +631,7 @@ async function renderMacro(noCache) {
       const d = data[m.symbol];
       if (!d) { chip.querySelector('.price').textContent = '—'; return; }
       const price = lastValid(d.close);
+      if (m.symbol === 'KRW=X' && price) { usdkrw = price; updatePortfolio(); }
       const c = chgInfo(price, d.previousClose);
       chip.querySelector('.price').textContent = m.fmt === 'pct' ? price.toFixed(2) + '%' : fmtPrice(price, m.symbol, m.fmt);
       const chg = chip.querySelector('.chg');
@@ -564,16 +647,22 @@ async function renderMacro(noCache) {
 function renderWatchlist(noCache) {
   const grid = document.getElementById('watchlist');
   grid.innerHTML = '';
+  if (!watchlist.length) {
+    grid.innerHTML = '<div class="hint" style="padding:18px 4px">관심종목이 없습니다. 위 검색창에서 종목 이름을 검색해 추가해 보세요.</div>';
+    updatePortfolio();
+    return;
+  }
   watchlist.forEach(item => {
     const card = document.createElement('div');
     card.className = 'card' + (item.symbol === selected.symbol ? ' selected' : '');
     card.innerHTML = `
       <button class="del" title="삭제">✕</button>
-      <div class="name">${item.name || item.symbol}</div>
-      <div class="sym">${item.symbol}</div>
+      <div class="name">${esc(item.name || item.symbol)}</div>
+      <div class="sym">${esc(item.symbol)}</div>
       <div class="price">…</div>
       <div class="chg flat">—</div>
       <div class="rets"></div>
+      <div class="holding-line" hidden></div>
       <canvas></canvas>`;
     card.querySelector('.del').onclick = e => {
       e.stopPropagation();
@@ -611,31 +700,138 @@ async function fillCards(noCache) {
     }
     const price = closes[closes.length - 1];
     const prev = closes.length > 1 ? closes[closes.length - 2] : null; // 전일 종가
-    quoteCache[item.symbol] = { price, prev };
-    const c = chgInfo(price, prev);
-    card.querySelector('.price').textContent = fmtPrice(price, item.symbol);
-    const chg = card.querySelector('.chg');
-    chg.className = 'chg ' + c.cls;
-    chg.textContent = '어제 대비 ' + c.text;
     // 기간별 수익률: 1주(5거래일) · 1개월(21거래일) · 3개월(전체)
     const retOf = n => {
       const base = closes[closes.length - 1 - n];
       return base ? (price - base) / base * 100 : null;
     };
-    const periods = [['1주', retOf(5)], ['1개월', retOf(21)], ['3개월', closes.length > 1 ? (price - closes[0]) / closes[0] * 100 : null]];
+    const ret1m = retOf(21);
+    quoteCache[item.symbol] = { price, prev, ret1m };
+    const c = chgInfo(price, prev);
+    card.querySelector('.price').textContent = fmtPrice(price, item.symbol);
+    const chg = card.querySelector('.chg');
+    chg.className = 'chg ' + c.cls;
+    chg.textContent = '어제 대비 ' + c.text;
+    const periods = [['1주', retOf(5)], ['1개월', ret1m], ['3개월', closes.length > 1 ? (price - closes[0]) / closes[0] * 100 : null]];
     card.querySelector('.rets').innerHTML = periods
       .filter(p => p[1] != null)
       .map(p => {
         const cls = p[1] > 0 ? 'up' : p[1] < 0 ? 'down' : 'flat';
         return `<span class="ret-chip">${p[0]} <b class="${cls}">${p[1] >= 0 ? '+' : ''}${p[1].toFixed(1)}%</b></span>`;
       }).join('');
+    fillHoldingLine(card, item);
     if (!item.name) fillName(item, card); // 이름이 없으면 비동기로 종목명 조회
     // 스파크라인 색은 3개월 추세 기준
     const trend = closes[closes.length - 1] > closes[0] ? 'up'
       : closes[closes.length - 1] < closes[0] ? 'down' : 'flat';
     drawSparkline(card.querySelector('canvas'), closes, trend);
   });
+  sortCards();
+  updatePortfolio();
 }
+
+// ── 보유 손익 (수량·평단가는 상세 화면 개요 탭에서 입력) ──
+function holdingPL(item) {
+  const q = quoteCache[item.symbol];
+  if (!item.qty || !item.avg || !q || !q.price) return null;
+  const cost = item.qty * item.avg;
+  const value = item.qty * q.price;
+  return { cost, value, diff: value - cost, pct: (value - cost) / cost * 100 };
+}
+
+function fillHoldingLine(card, item) {
+  const line = card.querySelector('.holding-line');
+  const pl = holdingPL(item);
+  if (!pl) { line.hidden = true; return; }
+  const cls = pl.diff > 0 ? 'up' : pl.diff < 0 ? 'down' : 'flat';
+  line.hidden = false;
+  line.innerHTML = `💼 ${item.qty.toLocaleString()}주 보유 · 손익 <b class="${cls}">${pl.diff >= 0 ? '+' : ''}${fmtPrice(Math.abs(pl.diff), item.symbol).replace(/^([₩$])/, pl.diff < 0 ? '-$1' : '$1')} (${pl.pct >= 0 ? '+' : ''}${pl.pct.toFixed(1)}%)</b>`;
+}
+
+// ── 포트폴리오 총 요약 (미국 종목은 원/달러 환율로 환산) ──
+function updatePortfolio() {
+  const section = document.getElementById('portfolio-section');
+  const bar = document.getElementById('portfolio-bar');
+  const holdings = watchlist.filter(w => w.qty && w.avg && quoteCache[w.symbol] && quoteCache[w.symbol].price);
+  if (!holdings.length) { section.hidden = true; return; }
+  const needFx = holdings.some(w => !isKorean(w.symbol));
+  if (needFx && !usdkrw) { section.hidden = true; return; } // 환율 로드 후 다시 호출됨
+  let cost = 0, value = 0;
+  holdings.forEach(w => {
+    const pl = holdingPL(w);
+    const fx = isKorean(w.symbol) ? 1 : usdkrw;
+    cost += pl.cost * fx;
+    value += pl.value * fx;
+  });
+  const diff = value - cost, pct = cost ? diff / cost * 100 : 0;
+  const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const won = v => '₩' + Math.round(Math.abs(v)).toLocaleString('ko-KR');
+  section.hidden = false;
+  bar.innerHTML = `
+    <div class="pf-item"><div class="k">💼 보유 평가금액</div><div class="v">${won(value)}</div></div>
+    <div class="pf-item"><div class="k">매입금액</div><div class="v">${won(cost)}</div></div>
+    <div class="pf-item"><div class="k">평가손익</div><div class="v ${cls}">${diff >= 0 ? '+' : '-'}${won(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</div></div>
+    <div class="pf-item"><div class="k">환율 적용</div><div class="v" style="font-size:0.85rem;color:var(--muted)">${needFx && usdkrw ? '$1 = ₩' + Math.round(usdkrw).toLocaleString() : '원화 종목만'}</div></div>`;
+}
+
+// ── 카드 정렬 ──
+const sortSel = document.getElementById('wl-sort');
+sortSel.value = localStorage.getItem('wl-sort') || 'added';
+sortSel.onchange = () => { localStorage.setItem('wl-sort', sortSel.value); sortCards(); };
+
+function sortCards() {
+  const mode = sortSel.value;
+  if (mode === 'added') return; // 저장된 순서 그대로
+  const grid = document.getElementById('watchlist');
+  const cards = [...grid.querySelectorAll('.card')];
+  const keyOf = sym => {
+    const item = watchlist.find(w => w.symbol === sym);
+    const q = quoteCache[sym] || {};
+    if (mode === 'chg') return q.price && q.prev ? (q.price - q.prev) / q.prev : -Infinity;
+    if (mode === 'ret1m') return q.ret1m != null ? q.ret1m : -Infinity;
+    if (mode === 'pl') { const pl = item && holdingPL(item); return pl ? pl.pct : -Infinity; }
+    return 0;
+  };
+  cards.sort((a, b) => {
+    if (mode === 'name') {
+      const an = (watchlist.find(w => w.symbol === a.dataset.symbol) || {}).name || a.dataset.symbol;
+      const bn = (watchlist.find(w => w.symbol === b.dataset.symbol) || {}).name || b.dataset.symbol;
+      return an.localeCompare(bn, 'ko');
+    }
+    return keyOf(b.dataset.symbol) - keyOf(a.dataset.symbol); // 내림차순
+  });
+  cards.forEach(c => grid.appendChild(c));
+}
+
+// ── 관심종목 공유 링크 (기기 간 이동: localStorage가 브라우저별이라 링크로 전달) ──
+document.getElementById('share-btn').onclick = async () => {
+  const payload = watchlist.map(w => ({ symbol: w.symbol, name: w.name, reuters: w.reuters }));
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const url = location.origin + location.pathname + '#wl=' + b64;
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('관심종목 목록 링크가 복사되었습니다.\n폰 등 다른 기기의 브라우저에 붙여넣어 열면 목록을 그대로 가져옵니다.');
+  } catch (e) {
+    prompt('아래 링크를 복사해 다른 기기에서 여세요:', url);
+  }
+};
+
+// 공유 링크로 접속한 경우 목록 가져오기
+(() => {
+  const m = location.hash.match(/^#wl=(.+)$/);
+  if (!m) return;
+  try {
+    const imported = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if (Array.isArray(imported) && imported.length && imported[0].symbol) {
+      if (confirm(`공유받은 관심종목 ${imported.length}개를 가져올까요?\n(현재 목록은 대체되며, 보유 정보는 유지되지 않습니다)`)) {
+        watchlist = imported;
+        saveList();
+        selected = watchlist[0];
+      }
+    }
+  } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.search);
+})();
 
 async function fillName(item, card) {
   try {
@@ -993,7 +1189,51 @@ function renderOverviewTab(d, item) {
       <div class="band-labels"><span>최저 ${fmtPrice(low, item.symbol)}</span><span>최고 ${fmtPrice(high, item.symbol)}</span></div>
     </div>`;
   }
+  // 내 보유 정보 입력 (수량·평단가 → 카드와 상단 요약에 손익 표시)
+  const unit = isKorean(item.symbol) ? '원' : '$';
+  html += `<div class="holding-form" style="margin-top:14px">
+    <div class="hf-title">💼 내 보유 정보 <span style="color:var(--muted);font-weight:400">— 입력하면 카드와 대시보드 상단에 평가손익이 표시됩니다 (이 기기에만 저장)</span></div>
+    <div class="hf-row">
+      <input id="hf-qty" type="number" min="0" step="any" placeholder="보유 수량 (주)" value="${item.qty || ''}">
+      <input id="hf-avg" type="number" min="0" step="any" placeholder="평균단가 (${unit})" value="${item.avg || ''}">
+      <button id="hf-save">저장</button>
+      ${item.qty ? '<button class="hf-del" id="hf-del">보유 삭제</button>' : ''}
+    </div>
+    <div class="hf-result" id="hf-result"></div>
+  </div>`;
   el.innerHTML = html;
+  // 보유 폼 이벤트
+  const showPL = () => {
+    const pl = holdingPL(item);
+    const box = el.querySelector('#hf-result');
+    if (!pl) { box.textContent = ''; return; }
+    const cls = pl.diff > 0 ? 'up' : pl.diff < 0 ? 'down' : 'flat';
+    box.innerHTML = `평가금액 <b>${fmtPrice(pl.value, item.symbol)}</b> · 손익 <b class="${cls}">${pl.diff >= 0 ? '+' : ''}${fmtPrice(pl.diff, item.symbol)} (${pl.pct >= 0 ? '+' : ''}${pl.pct.toFixed(2)}%)</b>`;
+  };
+  showPL();
+  el.querySelector('#hf-save').onclick = () => {
+    const qty = parseFloat(el.querySelector('#hf-qty').value);
+    const avg = parseFloat(el.querySelector('#hf-avg').value);
+    if (!qty || !avg || qty <= 0 || avg <= 0) { alert('수량과 평균단가를 올바르게 입력해 주세요.'); return; }
+    item.qty = qty;
+    item.avg = avg;
+    saveList();
+    showPL();
+    const card = document.querySelector(`.card[data-symbol="${CSS.escape(item.symbol)}"]`);
+    if (card) fillHoldingLine(card, item);
+    updatePortfolio();
+    renderOverviewTab(d, item); // 삭제 버튼 갱신
+  };
+  const delBtn = el.querySelector('#hf-del');
+  if (delBtn) delBtn.onclick = () => {
+    delete item.qty;
+    delete item.avg;
+    saveList();
+    const card = document.querySelector(`.card[data-symbol="${CSS.escape(item.symbol)}"]`);
+    if (card) fillHoldingLine(card, item);
+    updatePortfolio();
+    renderOverviewTab(d, item);
+  };
 }
 
 // ── ② 재무 분석 탭 (투자적합도 + 실적·재무제표 통합) ──
@@ -1478,13 +1718,17 @@ function computeSignals(bars) {
 document.getElementById('today').textContent =
   new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
-document.getElementById('refresh-btn').onclick = () => {
-  document.getElementById('updated-at').textContent = '';
-  renderMacro(true);
-  renderWatchlist(true);
+document.getElementById('refresh-btn').onclick = async () => {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.55';
+  document.getElementById('updated-at').textContent = '갱신 중…';
   renderMarketNews();
   renderSymbolNews();
+  await Promise.allSettled([renderMacro(true), (async () => renderWatchlist(true))()]);
   markUpdated();
+  btn.disabled = false;
+  btn.style.opacity = '';
 };
 function markUpdated() {
   document.getElementById('updated-at').textContent =
