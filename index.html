@@ -115,29 +115,45 @@
   .card .chg { font-size: 0.85rem; margin-top: 2px; }
   .card canvas { width: 100%; height: 54px; margin-top: 10px; display: block; }
   .card .err { color: var(--muted); font-size: 0.8rem; margin-top: 14px; }
-  /* 종목 추가 바 */
-  .add-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-  .add-bar input, .add-bar select {
+  /* 종목 추가 (검색) */
+  .add-bar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .ac-wrap { position: relative; flex: 1; max-width: 520px; }
+  .ac-wrap input {
+    width: 100%;
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 8px;
-    padding: 9px 12px;
+    padding: 11px 14px;
     font-size: 0.92rem;
   }
-  #symbol-input { flex: 2; min-width: 150px; }
-  #name-input { flex: 1.5; min-width: 130px; }
-  .add-bar button {
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    border-radius: 8px;
-    padding: 9px 18px;
-    font-size: 0.92rem;
-    cursor: pointer;
-    font-weight: 600;
+  .ac-wrap input:focus { outline: none; border-color: var(--accent); }
+  .ac-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    max-height: 320px; overflow-y: auto;
   }
-  .add-bar button:hover { filter: brightness(1.15); }
+  .ac-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover { background: rgba(79,140,255,0.1); }
+  .ac-item .nm { font-size: 0.9rem; font-weight: 600; }
+  .ac-item .cd { font-size: 0.72rem; color: var(--muted); }
+  .ac-item .mk {
+    margin-left: auto; font-size: 0.68rem; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; white-space: nowrap;
+  }
+  .ac-empty { padding: 13px 16px; color: var(--muted); font-size: 0.82rem; }
+  /* 카드 기간 수익률 */
+  .rets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .ret-chip {
+    font-size: 0.72rem; border-radius: 6px; padding: 3px 8px;
+    background: var(--bg); border: 1px solid var(--border);
+  }
+  .ret-chip b { font-weight: 700; }
   .hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 12px; line-height: 1.5; }
   /* 차트 */
   .panel {
@@ -146,18 +162,6 @@
     border-radius: 12px;
     overflow: hidden;
   }
-  #chart-box { height: 440px; position: relative; }
-  .range-btns { display: inline-flex; gap: 4px; margin-left: 10px; }
-  .range-btns button {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: 6px;
-    padding: 3px 10px;
-    cursor: pointer;
-    font-size: 0.78rem;
-  }
-  .range-btns button.active { border-color: var(--accent); color: var(--accent); }
   /* 뉴스 */
   .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .news-panel { height: 520px; overflow-y: auto; padding: 6px 0; scrollbar-width: thin; }
@@ -276,6 +280,31 @@
     background: rgba(241,196,15,0.07); border: 1px solid rgba(241,196,15,0.25);
     font-size: 0.73rem; color: var(--muted); line-height: 1.6;
   }
+  /* 기술 분석 탭 */
+  .tech-chart-box { height: 380px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+  .tech-range { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tech-range button {
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.78rem;
+  }
+  .tech-range button.active { border-color: var(--accent); color: var(--accent); }
+  .ma-legend { display: flex; gap: 12px; font-size: 0.72rem; color: var(--muted); margin-bottom: 16px; flex-wrap: wrap; }
+  .signal-summary {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 14px;
+  }
+  .signal-verdict { font-size: 1.05rem; font-weight: 700; }
+  .signal-counts { display: flex; gap: 10px; font-size: 0.8rem; color: var(--muted); }
+  .signal-counts b { font-size: 0.92rem; }
+  .sig-badge {
+    font-size: 0.72rem; font-weight: 700; border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+  }
+  .sig-badge.buy { background: rgba(46,204,113,0.15); color: #2ecc71; }
+  .sig-badge.neutral { background: rgba(241,196,15,0.13); color: #f1c40f; }
+  .sig-badge.sell { background: rgba(231,76,60,0.15); color: #e74c3c; }
+  .check-item .head-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fund-divider { margin: 22px 0 12px; font-size: 0.9rem; font-weight: 700; color: var(--muted); border-top: 1px solid var(--border); padding-top: 18px; }
   .d-loading { color: var(--muted); padding: 40px 0; text-align: center; line-height: 1.7; }
   .retry-btn {
     background: var(--accent); border: none; color: #fff;
@@ -284,7 +313,7 @@
   @media (max-width: 800px) {
     .news-grid { grid-template-columns: 1fr; }
     .news-panel { height: 400px; }
-    #chart-box { height: 320px; }
+    .tech-chart-box { height: 300px; }
     .section { padding: 0 12px; }
     header { padding: 12px 12px 4px; }
     .macro-strip { padding: 10px 12px 2px; }
@@ -309,38 +338,19 @@
 <div class="section">
   <h2>⭐ 관심종목</h2>
   <div class="add-bar">
-    <select id="exchange">
-      <option value="auto">자동 판별</option>
-      <option value="KS">코스피 (.KS)</option>
-      <option value="KQ">코스닥 (.KQ)</option>
-      <option value="US">미국</option>
-    </select>
-    <input id="symbol-input" type="text" placeholder="티커 — 예: 005930, NVDA" />
-    <input id="name-input" type="text" placeholder="표시 이름(선택) — 예: 삼성전자" />
-    <button id="add-btn">＋ 추가</button>
+    <div class="ac-wrap">
+      <input id="symbol-input" type="text" placeholder="종목 이름이나 코드로 검색 — 예: 삼성전자, 카카오, NVDA, 테슬라" autocomplete="off" />
+      <div class="ac-results" id="ac-results" hidden></div>
+    </div>
   </div>
   <div class="hint">
-    국내주식은 6자리 종목코드(삼성전자 005930), 미국주식은 티커(NVDA)를 입력하세요.
-    자동 판별: 숫자 6자리 → 코스피, 영문 → 미국. 코스닥 종목은 "코스닥"을 직접 선택하세요.
-    표시 이름을 입력하면 종목 뉴스 검색에도 사용됩니다. 카드를 클릭하면 아래 차트와 종목 뉴스가 바뀝니다.
+    한글 이름이나 티커로 검색해서 목록에서 선택하면 추가됩니다 (국내·미국 지원).
+    카드를 클릭하면 시세·재무 분석·기술적 매매신호·뉴스가 있는 상세 화면이 열립니다.
   </div>
   <div class="cards" id="watchlist"></div>
 </div>
 
-<!-- ③ 차트 -->
-<div class="section">
-  <h2>📊 차트 — <span id="chart-symbol-label"></span>
-    <span class="range-btns" id="range-btns">
-      <button data-range="3mo">3개월</button>
-      <button data-range="6mo" class="active">6개월</button>
-      <button data-range="1y">1년</button>
-      <button data-range="5y">5년</button>
-    </span>
-  </h2>
-  <div class="panel" id="chart-box"></div>
-</div>
-
-<!-- ④ 뉴스 -->
+<!-- ③ 뉴스 -->
 <div class="section">
   <h2>📰 뉴스</h2>
   <div class="news-grid">
@@ -372,14 +382,14 @@
     </div>
     <div class="detail-tabs" id="detail-tabs">
       <button data-tab="overview" class="active">개요</button>
-      <button data-tab="finance">실적·재무</button>
-      <button data-tab="fit">투자적합도</button>
+      <button data-tab="fund">재무 분석</button>
+      <button data-tab="tech">기술 분석</button>
       <button data-tab="news">뉴스</button>
     </div>
     <div class="detail-body">
       <div class="d-tab" id="tab-overview"></div>
-      <div class="d-tab" id="tab-finance" hidden></div>
-      <div class="d-tab" id="tab-fit" hidden></div>
+      <div class="d-tab" id="tab-fund" hidden></div>
+      <div class="d-tab" id="tab-tech" hidden></div>
       <div class="d-tab" id="tab-news" hidden></div>
     </div>
   </div>
@@ -391,7 +401,7 @@ const STORAGE_KEY = 'my-watchlist-v2';
 const DEFAULT_LIST = [
   { symbol: '005930.KS', name: '삼성전자' },
   { symbol: '000660.KS', name: 'SK하이닉스' },
-  { symbol: 'NVDA',      name: '엔비디아' }
+  { symbol: 'NVDA',      name: '엔비디아', reuters: 'NVDA.O' }
 ];
 const MACRO = [
   { symbol: '^KS11', label: '코스피',      fmt: 'num'  },
@@ -413,13 +423,12 @@ const PROXY_DEFS = [
   { wrap: u => 'https://r.jina.ai/' + u, headers: { 'X-Return-Format': 'text' } },
   { wrap: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) }
 ];
-const proxyAffinity = {}; // 호스트별 마지막 성공 프록시 기억
+// 호스트별 마지막 성공 프록시 기억 (네이버는 corsproxy가 차단하므로 corsfix(2)부터 시작)
+const proxyAffinity = { 'm.stock.naver.com': 2, 'api.stock.naver.com': 2, 'ac.stock.naver.com': 2 };
 const CACHE_TTL = 3 * 60 * 1000; // 시세 캐시 3분
 
 let watchlist = loadList();
 let selected = watchlist[0] || DEFAULT_LIST[0];
-let chartRange = '6mo';
-let mainChart = null;
 const quoteCache = {}; // 카드 시세 저장 → 상세 모달 헤더에서 재사용
 
 // ───────────────────────── 유틸 ─────────────────────────
@@ -564,6 +573,7 @@ function renderWatchlist(noCache) {
       <div class="sym">${item.symbol}</div>
       <div class="price">…</div>
       <div class="chg flat">—</div>
+      <div class="rets"></div>
       <canvas></canvas>`;
     card.querySelector('.del').onclick = e => {
       e.stopPropagation();
@@ -606,7 +616,19 @@ async function fillCards(noCache) {
     card.querySelector('.price').textContent = fmtPrice(price, item.symbol);
     const chg = card.querySelector('.chg');
     chg.className = 'chg ' + c.cls;
-    chg.textContent = c.text;
+    chg.textContent = '어제 대비 ' + c.text;
+    // 기간별 수익률: 1주(5거래일) · 1개월(21거래일) · 3개월(전체)
+    const retOf = n => {
+      const base = closes[closes.length - 1 - n];
+      return base ? (price - base) / base * 100 : null;
+    };
+    const periods = [['1주', retOf(5)], ['1개월', retOf(21)], ['3개월', closes.length > 1 ? (price - closes[0]) / closes[0] * 100 : null]];
+    card.querySelector('.rets').innerHTML = periods
+      .filter(p => p[1] != null)
+      .map(p => {
+        const cls = p[1] > 0 ? 'up' : p[1] < 0 ? 'down' : 'flat';
+        return `<span class="ret-chip">${p[0]} <b class="${cls}">${p[1] >= 0 ? '+' : ''}${p[1].toFixed(1)}%</b></span>`;
+      }).join('');
     if (!item.name) fillName(item, card); // 이름이 없으면 비동기로 종목명 조회
     // 스파크라인 색은 3개월 추세 기준
     const trend = closes[closes.length - 1] > closes[0] ? 'up'
@@ -652,52 +674,7 @@ function drawSparkline(canvas, data, cls) {
   ctx.fill();
 }
 
-// ───────────────────────── ③ 차트 ─────────────────────────
-async function renderChart() {
-  const box = document.getElementById('chart-box');
-  document.getElementById('chart-symbol-label').textContent = (selected.name || '') + ' (' + selected.symbol + ')';
-  box.innerHTML = '<div class="loading">차트 불러오는 중…</div>';
-  try {
-    const r = await fetchChart(selected.symbol, chartRange, '1d');
-    const ts = r.timestamp || [];
-    const q = r.indicators.quote[0];
-    const candles = ts.map((t, i) => ({
-      time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i]
-    })).filter(c => c.close != null);
-    box.innerHTML = '';
-    mainChart = LightweightCharts.createChart(box, {
-      autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: '#8a90a3' },
-      grid: { vertLines: { color: '#1f2330' }, horzLines: { color: '#1f2330' } },
-      timeScale: { borderColor: '#2a2e3a' },
-      rightPriceScale: { borderColor: '#2a2e3a' },
-      localization: {
-        priceFormatter: v => isKorean(selected.symbol)
-          ? Math.round(v).toLocaleString('ko-KR')
-          : v.toFixed(2)
-      }
-    });
-    const series = mainChart.addCandlestickSeries({
-      upColor: '#f04452', downColor: '#3182f6',
-      wickUpColor: '#f04452', wickDownColor: '#3182f6',
-      borderVisible: false
-    });
-    series.setData(candles);
-    mainChart.timeScale().fitContent();
-  } catch (e) {
-    box.innerHTML = '<div class="loading">차트 데이터를 불러오지 못했습니다. 새로고침해 보세요.</div>';
-  }
-}
-
-document.getElementById('range-btns').addEventListener('click', e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  chartRange = btn.dataset.range;
-  document.querySelectorAll('#range-btns button').forEach(b => b.classList.toggle('active', b === btn));
-  renderChart();
-});
-
-// ───────────────────────── ④ 뉴스 (구글뉴스 RSS) ─────────────────────────
+// ───────────────────────── ③ 뉴스 (구글뉴스 RSS) ─────────────────────────
 async function renderNews(el, rssUrl, attempt) {
   el.innerHTML = '<div class="loading">불러오는 중…</div>';
   try {
@@ -737,8 +714,9 @@ function gnewsSearch(q) {
 }
 
 function renderMarketNews() {
+  // 검색 쿼리형 RSS는 프록시에서 자주 실패해 경제 토픽 헤드라인 피드로 교체
   renderNews(document.getElementById('market-news'),
-    gnewsSearch('증시 OR 금리 OR 환율 when:1d'));
+    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko');
 }
 
 function renderSymbolNews() {
@@ -747,41 +725,79 @@ function renderSymbolNews() {
   renderNews(document.getElementById('symbol-news'), gnewsSearch(q));
 }
 
-// ───────────────────────── 종목 선택/추가 ─────────────────────────
+// ───────────────────────── 종목 선택 ─────────────────────────
 function selectStock(item) {
   selected = item;
   document.querySelectorAll('.card').forEach(c => {
     c.classList.toggle('selected', c.querySelector('.sym').textContent === item.symbol);
   });
-  renderChart();
   renderSymbolNews();
 }
 
-document.getElementById('add-btn').onclick = addStock;
-document.getElementById('symbol-input').addEventListener('keydown', e => { if (e.key === 'Enter') addStock(); });
-document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') addStock(); });
+// ───────────────────────── 종목 추가 (네이버 자동완성 검색) ─────────────────────────
+const acInput = document.getElementById('symbol-input');
+const acBox = document.getElementById('ac-results');
+let acTimer = null;
+let acSeq = 0;
 
-function addStock() {
-  const symInput = document.getElementById('symbol-input');
-  const nameInput = document.getElementById('name-input');
-  const ex = document.getElementById('exchange').value;
-  let raw = symInput.value.trim().toUpperCase();
-  if (!raw) return;
+acInput.addEventListener('input', () => {
+  clearTimeout(acTimer);
+  const q = acInput.value.trim();
+  if (!q) { acBox.hidden = true; return; }
+  acTimer = setTimeout(() => searchStocks(q), 350);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-wrap')) acBox.hidden = true;
+});
+acInput.addEventListener('focus', () => { if (acBox.children.length) acBox.hidden = false; });
 
-  let symbol;
-  if (raw.includes('.')) symbol = raw;
-  else if (ex === 'KS' || ex === 'KQ') symbol = raw + '.' + ex;
-  else if (ex === 'US') symbol = raw;
-  else symbol = /^\d{6}$/.test(raw) ? raw + '.KS' : raw;
+async function searchStocks(q) {
+  const seq = ++acSeq;
+  acBox.hidden = false;
+  acBox.innerHTML = '<div class="ac-empty">검색 중…</div>';
+  try {
+    const url = 'https://ac.stock.naver.com/ac?q=' + encodeURIComponent(q) + '&target=stock';
+    const j = await fetchViaProxy(url, false);
+    if (seq !== acSeq) return; // 더 최신 검색이 시작됐으면 무시
+    const items = (j.items || []).filter(it => it.category === 'stock' && (it.nationCode === 'KOR' || it.nationCode === 'USA')).slice(0, 8);
+    if (!items.length) {
+      acBox.innerHTML = '<div class="ac-empty">검색 결과가 없습니다 (국내·미국 종목만 지원)</div>';
+      return;
+    }
+    acBox.innerHTML = '';
+    items.forEach(it => {
+      const div = document.createElement('div');
+      div.className = 'ac-item';
+      div.innerHTML = `<div><div class="nm"></div><div class="cd"></div></div><span class="mk"></span>`;
+      div.querySelector('.nm').textContent = it.name;
+      div.querySelector('.cd').textContent = it.code;
+      div.querySelector('.mk').textContent = it.typeName || it.typeCode;
+      div.onclick = () => addFromSearch(it);
+      acBox.appendChild(div);
+    });
+  } catch (e) {
+    if (seq !== acSeq) return;
+    acBox.innerHTML = '<div class="ac-empty">검색 실패 — 잠시 후 다시 입력해 보세요</div>';
+  }
+}
 
+function addFromSearch(it) {
+  let symbol, reuters;
+  if (it.nationCode === 'KOR') {
+    symbol = it.code + (it.typeCode === 'KOSDAQ' ? '.KQ' : '.KS');
+    reuters = it.reutersCode || it.code;
+  } else {
+    symbol = it.code;            // 미국: 야후 = 티커 그대로
+    reuters = it.reutersCode;    // 네이버용 (예: TSLA.O)
+  }
+  acBox.hidden = true;
+  acInput.value = '';
   if (watchlist.some(w => w.symbol === symbol)) {
-    alert('이미 등록된 종목입니다: ' + symbol);
+    alert('이미 등록된 종목입니다: ' + it.name);
     return;
   }
-  watchlist.push({ symbol, name: nameInput.value.trim() || null });
+  watchlist.push({ symbol, name: it.name, reuters });
   saveList();
-  symInput.value = '';
-  nameInput.value = '';
   renderWatchlist();
 }
 
@@ -836,7 +852,7 @@ async function loadDetailData(item) {
       unit: '억원 · %, 배 생략'
     };
   } else {
-    const reuters = await resolveReuters(item.symbol);
+    const reuters = item.reuters || await resolveReuters(item.symbol);
     const base = 'https://api.stock.naver.com/stock/' + reuters;
     const [basic, integ, annual] = await Promise.all([
       fetchNaver(base + '/basic'),
@@ -905,10 +921,10 @@ function openDetail(item) {
   // 탭 초기화
   switchTab('overview');
   document.getElementById('tab-overview').innerHTML = '<div class="d-loading">기업 정보를 불러오는 중…</div>';
-  document.getElementById('tab-finance').innerHTML = '<div class="d-loading">불러오는 중…</div>';
-  document.getElementById('tab-fit').innerHTML = '<div class="d-loading">불러오는 중…</div>';
+  document.getElementById('tab-fund').innerHTML = '<div class="d-loading">불러오는 중…</div>';
   renderNews(document.getElementById('tab-news'), gnewsSearch((item.name || item.symbol) + ' when:14d'));
-  // 데이터 로드
+  renderTechTab(item); // 기술 분석은 야후 데이터만 쓰므로 독립적으로 로드
+  // 재무 데이터 로드 (네이버)
   detailData = null;
   loadDetailData(item).then(d => {
     if (detailItem !== item) return; // 그 사이 다른 종목을 열었으면 무시
@@ -919,11 +935,10 @@ function openDetail(item) {
       logo.onerror = () => logo.classList.add('hidden');
     }
     renderOverviewTab(d, item);
-    renderFinanceTab(d);
-    renderFitTab(d, item);
+    renderFundTab(d, item);
   }).catch(e => {
     if (detailItem !== item) return;
-    ['tab-overview', 'tab-finance', 'tab-fit'].forEach(id => {
+    ['tab-overview', 'tab-fund'].forEach(id => {
       const el = document.getElementById(id);
       el.innerHTML = '<div class="d-loading">기업 정보를 불러오지 못했습니다.<br>무료 데이터 경유 서버가 일시적으로 느릴 수 있습니다.<br><br><button class="retry-btn">다시 시도</button></div>';
       el.querySelector('.retry-btn').onclick = () => openDetail(item);
@@ -945,8 +960,9 @@ function switchTab(name) {
     b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.d-tab').forEach(t =>
     t.hidden = (t.id !== 'tab-' + name));
-  // 숨겨진 상태에선 캔버스 크기가 0이라, 실적 탭이 보일 때 차트를 다시 그린다
-  if (name === 'finance' && detailData && document.getElementById('fin-chart')) drawFinance(detailData);
+  // 숨겨진 상태에선 캔버스 크기가 0이라, 해당 탭이 보일 때 차트를 다시 그린다
+  if (name === 'fund' && detailData && document.getElementById('fin-chart')) drawFinance(detailData);
+  if (name === 'tech') drawTechChart();
 }
 document.getElementById('detail-tabs').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -980,12 +996,14 @@ function renderOverviewTab(d, item) {
   el.innerHTML = html;
 }
 
-// ── ② 실적·재무 탭 ──
+// ── ② 재무 분석 탭 (투자적합도 + 실적·재무제표 통합) ──
 let finPeriod = 'annual';
-function renderFinanceTab(d) {
-  const el = document.getElementById('tab-finance');
+function renderFundTab(d, item) {
+  const el = document.getElementById('tab-fund');
   finPeriod = 'annual';
-  let html = '<div class="fin-toggle"><button data-p="annual" class="active">연간</button>';
+  let html = buildFitHTML(d, item);
+  html += '<div class="fund-divider">📊 실적·재무제표</div>';
+  html += '<div class="fin-toggle"><button data-p="annual" class="active">연간</button>';
   if (d.quarter) html += '<button data-p="quarter">분기</button>';
   html += '</div><canvas class="fin-chart" id="fin-chart"></canvas><div class="fin-legend" id="fin-legend"></div>';
   html += '<div class="fin-table-wrap" id="fin-table-wrap"></div><div class="unit-note">단위: ' + d.unit + ' · (E)는 컨센서스 추정치</div>';
@@ -1145,13 +1163,9 @@ function buildChecks(d, item) {
   return checks;
 }
 
-function renderFitTab(d, item) {
-  const el = document.getElementById('tab-fit');
+function buildFitHTML(d, item) {
   const checks = buildChecks(d, item);
-  if (!checks.length) {
-    el.innerHTML = '<div class="d-loading">적합도를 계산할 데이터가 부족합니다.</div>';
-    return;
-  }
+  if (!checks.length) return '<div class="d-loading">적합도를 계산할 데이터가 부족합니다.</div>';
   const score = Math.round(checks.reduce((a, c) => a + (c.grade === 'good' ? 2 : c.grade === 'mid' ? 1 : 0), 0) / (checks.length * 2) * 100);
   const gradeTxt = score >= 65 ? ['저평가·매력 신호 우세', 'good'] : score >= 45 ? ['중립 — 신호 혼재', 'mid'] : ['고평가·주의 신호 우세', 'bad'];
   const gcolor = { good: '#2ecc71', mid: '#f1c40f', bad: '#e74c3c' }[gradeTxt[1]];
@@ -1187,7 +1201,277 @@ function renderFitTab(d, item) {
      <div><div class="t">${c.title}</div><div class="d">${c.desc}</div></div></div>`).join('') + '</div>';
   html += `<div class="disclaimer">⚠️ 본 적합도 점수는 네이버 증권 공개 데이터를 단순 규칙으로 평가한 <b>참고용 지표</b>이며 투자 권유가 아닙니다.
     PER·PBR 적정 수준은 업종마다 크게 다르고, 컨센서스는 변경될 수 있습니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
+  return html;
+}
+
+// ── ③ 기술 분석 탭 ──
+// 표준 기준: RSI(14) 30/70, MACD(12,26,9) 시그널 교차, 이동평균 5/20/60 크로스,
+// 볼린저밴드(20,±2σ), Envelope(20일선 ±6%), 스토캐스틱(14,3) 20/80, 거래량 20일 평균 대비
+let techState = null;
+
+async function renderTechTab(item) {
+  const el = document.getElementById('tab-tech');
+  techState = null;
+  el.innerHTML = '<div class="d-loading">차트와 기술 지표를 계산하는 중…</div>';
+  try {
+    const r = await fetchChart(item.symbol, '1y', '1d');
+    if (detailItem !== item) return;
+    const q = r.indicators.quote[0];
+    const bars = (r.timestamp || []).map((t, i) => ({
+      time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i], volume: (q.volume && q.volume[i]) || 0
+    })).filter(b => b.close != null && b.open != null && b.high != null && b.low != null);
+    if (bars.length < 30) throw new Error('데이터 부족');
+    techState = { item, bars, range: '6mo' };
+    buildTechUI(el);
+  } catch (e) {
+    if (detailItem !== item) return;
+    el.innerHTML = '<div class="d-loading">차트 데이터를 불러오지 못했습니다.<br><br><button class="retry-btn">다시 시도</button></div>';
+    el.querySelector('.retry-btn').onclick = () => renderTechTab(item);
+  }
+}
+
+function buildTechUI(el) {
+  const sigs = computeSignals(techState.bars);
+  const buy = sigs.filter(s => s.grade === 'buy').length;
+  const sell = sigs.filter(s => s.grade === 'sell').length;
+  const neutral = sigs.length - buy - sell;
+  const verdict = buy >= sell + 2 ? ['📈 매수 우세', 'good'] : sell >= buy + 2 ? ['📉 매도 우세', 'bad'] : ['⚖️ 중립 — 신호 혼재', 'mid'];
+  const icon = { buy: '▲', neutral: '─', sell: '▼' };
+  const iconCls = { buy: 'good', neutral: 'mid', sell: 'bad' };
+  const badge = { buy: '매수 신호', neutral: '중립', sell: '매도 신호' };
+  let html = `
+    <div class="tech-range" id="tech-range">
+      <button data-r="3mo">3개월</button>
+      <button data-r="6mo" class="active">6개월</button>
+      <button data-r="1y">1년</button>
+    </div>
+    <div class="tech-chart-box" id="tech-chart"></div>
+    <div class="ma-legend">
+      <span style="color:#f1c40f">━ 5일선</span>
+      <span style="color:#4f8cff">━ 20일선</span>
+      <span style="color:#b08cff">━ 60일선</span>
+      <span>하단 막대: 거래량</span>
+    </div>
+    <div class="signal-summary">
+      <div class="signal-verdict ${verdict[1]}">기술적 종합: ${verdict[0]}</div>
+      <div class="signal-counts">
+        <span class="good">매수 <b>${buy}</b></span>
+        <span class="mid">중립 <b>${neutral}</b></span>
+        <span class="bad">매도 <b>${sell}</b></span>
+      </div>
+    </div>
+    <div class="check-list">` + sigs.map(s => `
+      <div class="check-item">
+        <span class="check-icon ${iconCls[s.grade]}">${icon[s.grade]}</span>
+        <div style="flex:1">
+          <div class="head-row"><span class="t">${s.title}</span><span class="sig-badge ${s.grade}">${badge[s.grade]}</span></div>
+          <div class="d">${s.desc}</div>
+        </div>
+      </div>`).join('') + `</div>
+    <div class="disclaimer">⚠️ 기술적 지표는 과거 가격·거래량의 통계일 뿐 미래 수익을 보장하지 않습니다.
+      RSI 30/70, MACD 시그널 교차, 골든크로스, 볼린저밴드 ±2σ 등 일반적으로 통용되는 표준 기준을 적용했습니다.
+      단일 신호보다 여러 신호의 방향과 재무 분석을 함께 보세요. 투자 판단과 책임은 본인에게 있습니다.</div>`;
   el.innerHTML = html;
+  el.querySelector('#tech-range').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    techState.range = b.dataset.r;
+    el.querySelectorAll('#tech-range button').forEach(x => x.classList.toggle('active', x === b));
+    drawTechChart();
+  });
+  drawTechChart();
+}
+
+function drawTechChart() {
+  if (!techState) return;
+  const box = document.getElementById('tech-chart');
+  if (!box || !box.offsetParent) return; // 탭이 숨겨진 상태면 보일 때 다시 그림
+  box.innerHTML = '';
+  const { bars, item, range } = techState;
+  const n = range === '3mo' ? 63 : range === '6mo' ? 126 : bars.length;
+  const start = Math.max(0, bars.length - n);
+  const closes = bars.map(b => b.close);
+  const maArr = p => closes.map((_, i) => i + 1 >= p ? closes.slice(i + 1 - p, i + 1).reduce((a, b) => a + b, 0) / p : null);
+  const chart = LightweightCharts.createChart(box, {
+    autoSize: true,
+    layout: { background: { color: 'transparent' }, textColor: '#8a90a3' },
+    grid: { vertLines: { color: '#1f2330' }, horzLines: { color: '#1f2330' } },
+    timeScale: { borderColor: '#2a2e3a' },
+    rightPriceScale: { borderColor: '#2a2e3a' },
+    localization: {
+      priceFormatter: v => isKorean(item.symbol) ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(2)
+    }
+  });
+  const candle = chart.addCandlestickSeries({
+    upColor: '#f04452', downColor: '#3182f6',
+    wickUpColor: '#f04452', wickDownColor: '#3182f6',
+    borderVisible: false
+  });
+  candle.setData(bars.slice(start).map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+  const vol = chart.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });
+  chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+  vol.setData(bars.slice(start).map(b => ({
+    time: b.time, value: b.volume,
+    color: b.close >= b.open ? 'rgba(240,68,82,0.4)' : 'rgba(49,130,246,0.4)'
+  })));
+  [[maArr(5), '#f1c40f'], [maArr(20), '#4f8cff'], [maArr(60), '#b08cff']].forEach(([data, color]) => {
+    const s = chart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    s.setData(bars.map((b, i) => ({ time: b.time, value: data[i] })).slice(start).filter(p => p.value != null));
+  });
+  chart.timeScale().fitContent();
+}
+
+// ── 기술 지표 계산 ──
+function rsiWilder(closes, period) {
+  if (closes.length < period + 1) return null;
+  let gain = 0, loss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) gain += d; else loss -= d;
+  }
+  gain /= period; loss /= period;
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    gain = (gain * (period - 1) + Math.max(d, 0)) / period;
+    loss = (loss * (period - 1) + Math.max(-d, 0)) / period;
+  }
+  return loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+}
+function emaArr(arr, p) {
+  const k = 2 / (p + 1);
+  let e = arr[0];
+  const out = [e];
+  for (let i = 1; i < arr.length; i++) { e = arr[i] * k + e * (1 - k); out.push(e); }
+  return out;
+}
+function macdCalc(closes) {
+  const e12 = emaArr(closes, 12), e26 = emaArr(closes, 26);
+  const macd = closes.map((_, i) => e12[i] - e26[i]);
+  const sig = emaArr(macd, 9);
+  return { hist: macd.map((v, i) => v - sig[i]) };
+}
+function stochasticK(bars, period, smooth) {
+  const last = bars.length - 1;
+  if (bars.length < period + smooth) return null;
+  const kVals = [];
+  for (let j = last - smooth + 1; j <= last; j++) {
+    const sl = bars.slice(j - period + 1, j + 1);
+    const hi = Math.max(...sl.map(b => b.high)), lo = Math.min(...sl.map(b => b.low));
+    kVals.push(hi === lo ? 50 : (bars[j].close - lo) / (hi - lo) * 100);
+  }
+  return kVals.reduce((a, b) => a + b, 0) / kVals.length; // 슬로우 %K (3일 평활)
+}
+
+function computeSignals(bars) {
+  const closes = bars.map(b => b.close);
+  const vols = bars.map(b => b.volume);
+  const last = closes.length - 1;
+  const price = closes[last];
+  const sma = (p, idx = last) => idx + 1 >= p ? closes.slice(idx + 1 - p, idx + 1).reduce((a, b) => a + b, 0) / p : null;
+  const sigs = [];
+
+  // 1. RSI(14)
+  const rsi = rsiWilder(closes, 14);
+  if (rsi != null) sigs.push({
+    grade: rsi < 30 ? 'buy' : rsi > 70 ? 'sell' : 'neutral',
+    title: `RSI(14) = ${rsi.toFixed(1)}`,
+    desc: rsi < 30 ? '30 미만 과매도 구간 — 단기 반등을 노리는 매수 관점 신호입니다.'
+      : rsi > 70 ? '70 초과 과매수 구간 — 단기 조정 가능성이 있는 매도 관점 신호입니다.'
+      : '중립 구간입니다 (30 미만이면 과매도→매수, 70 초과면 과매수→매도 관점).'
+  });
+
+  // 2. MACD(12,26,9)
+  const { hist } = macdCalc(closes);
+  if (hist.length > 6) {
+    const h = hist[last];
+    let cross = '';
+    for (let i = last - 4; i <= last; i++) {
+      if (i > 0 && hist[i - 1] <= 0 && hist[i] > 0) cross = ' 최근 5일 내 골든크로스(시그널선 상향돌파)가 발생했습니다!';
+      if (i > 0 && hist[i - 1] >= 0 && hist[i] < 0) cross = ' 최근 5일 내 데드크로스(시그널선 하향돌파)가 발생했습니다.';
+    }
+    sigs.push({
+      grade: h > 0 ? 'buy' : 'sell',
+      title: `MACD(12,26,9) ${h > 0 ? '시그널선 위 — 상승 모멘텀' : '시그널선 아래 — 하락 모멘텀'}`,
+      desc: `히스토그램(diff) ${h >= 0 ? '+' : ''}${h.toFixed(2)}.${cross} MACD선이 시그널선을 상향 돌파하면 매수, 하향 돌파하면 매도 신호로 봅니다.`
+    });
+  }
+
+  // 3. 단기 이동평균 (5/20 크로스)
+  const m5 = sma(5), m20 = sma(20), m60 = sma(60);
+  if (m5 && m20) {
+    const m5p = sma(5, last - 1), m20p = sma(20, last - 1);
+    const cross = (m5p <= m20p && m5 > m20) ? ' 골든크로스가 막 발생했습니다!'
+      : (m5p >= m20p && m5 < m20) ? ' 데드크로스가 막 발생했습니다.' : '';
+    sigs.push({
+      grade: m5 > m20 ? 'buy' : 'sell',
+      title: `단기 추세: 5일선이 20일선 ${m5 > m20 ? '위' : '아래'}`,
+      desc: `5일 이동평균 ${fmtPrice(m5, techState.item.symbol)} vs 20일선 ${fmtPrice(m20, techState.item.symbol)}.${cross} 단기선이 위면 상승 추세 지속으로 봅니다.`
+    });
+  }
+
+  // 4. 중기 추세 (20/60 배열)
+  if (m20 && m60) {
+    const aligned = price > m20 && m20 > m60;
+    const reversed = price < m20 && m20 < m60;
+    sigs.push({
+      grade: aligned ? 'buy' : reversed ? 'sell' : 'neutral',
+      title: aligned ? '중기 정배열 (주가 > 20일선 > 60일선)' : reversed ? '중기 역배열 (주가 < 20일선 < 60일선)' : '중기 추세 전환 구간',
+      desc: '정배열은 중기 상승 추세의 교과서적 형태, 역배열은 하락 추세입니다. 섞여 있으면 추세 전환 중일 수 있습니다.'
+    });
+  }
+
+  // 5. 볼린저밴드(20, ±2σ)
+  if (m20 && last >= 19) {
+    const sl = closes.slice(last - 19, last + 1);
+    const sd = Math.sqrt(sl.reduce((a, v) => a + (v - m20) ** 2, 0) / 20);
+    const up = m20 + 2 * sd, lo = m20 - 2 * sd;
+    const pctB = (price - lo) / ((up - lo) || 1) * 100;
+    sigs.push({
+      grade: price < lo ? 'buy' : price > up ? 'sell' : 'neutral',
+      title: `볼린저밴드 %B = ${pctB.toFixed(0)}%`,
+      desc: price < lo ? '하단 밴드(-2σ) 아래로 이탈 — 통계적 과매도, 반등 관점 매수 신호입니다.'
+        : price > up ? '상단 밴드(+2σ) 위로 돌파 — 통계적 과열 구간입니다.'
+        : `밴드 내부 ${pctB.toFixed(0)}% 위치 (0% 부근 과매도, 100% 부근 과매수).`
+    });
+  }
+
+  // 6. Envelope (20일선 ±6%)
+  if (m20) {
+    const dev = (price / m20 - 1) * 100;
+    sigs.push({
+      grade: dev < -6 ? 'buy' : dev > 6 ? 'sell' : 'neutral',
+      title: `Envelope(20일, ±6%) 이격도 ${dev >= 0 ? '+' : ''}${dev.toFixed(1)}%`,
+      desc: dev < -6 ? '20일선 대비 6% 이상 하락 이탈 — 과매도 반등 관점 매수 신호입니다.'
+        : dev > 6 ? '20일선 대비 6% 이상 상승 이탈 — 과열에 따른 조정 관점 매도 신호입니다.'
+        : '20일선 ±6% 밴드 안의 정상 범위입니다. 밴드 이탈 시 평균 회귀를 노립니다.'
+    });
+  }
+
+  // 7. 스토캐스틱 (14,3)
+  const sto = stochasticK(bars, 14, 3);
+  if (sto != null) sigs.push({
+    grade: sto < 20 ? 'buy' : sto > 80 ? 'sell' : 'neutral',
+    title: `스토캐스틱 %K(14,3) = ${sto.toFixed(1)}`,
+    desc: sto < 20 ? '20 미만 과매도 구간 — 매수 관점 신호입니다.'
+      : sto > 80 ? '80 초과 과매수 구간 — 매도 관점 신호입니다.'
+      : '중립 구간입니다 (20 미만 과매도, 80 초과 과매수).'
+  });
+
+  // 8. 거래량 (20일 평균 대비)
+  if (vols[last] > 0 && last >= 21) {
+    const avg20 = vols.slice(last - 20, last).reduce((a, b) => a + b, 0) / 20;
+    const ratio = avg20 ? vols[last] / avg20 : 1;
+    const upDay = price >= closes[last - 1];
+    sigs.push({
+      grade: ratio >= 1.5 ? (upDay ? 'buy' : 'sell') : 'neutral',
+      title: `거래량: 20일 평균의 ${(ratio * 100).toFixed(0)}%`,
+      desc: ratio >= 1.5
+        ? (upDay ? '상승하며 거래량 급증(150%↑) — 매수세 유입으로 추세 신뢰도가 높아집니다.'
+                 : '하락하며 거래량 급증(150%↑) — 매도 압력이 강하다는 신호입니다.')
+        : '평균 수준의 거래량입니다. 거래량이 평균의 150% 이상으로 늘 때 추세 신호의 신뢰도가 올라갑니다.'
+    });
+  }
+  return sigs;
 }
 
 // ───────────────────────── 초기화 ─────────────────────────
@@ -1198,7 +1482,6 @@ document.getElementById('refresh-btn').onclick = () => {
   document.getElementById('updated-at').textContent = '';
   renderMacro(true);
   renderWatchlist(true);
-  renderChart();
   renderMarketNews();
   renderSymbolNews();
   markUpdated();
@@ -1210,7 +1493,6 @@ function markUpdated() {
 
 renderMacro();
 renderWatchlist();
-renderChart();
 // 뉴스는 시세 요청과 겹치지 않게 약간 늦게 시작 (프록시 동시요청 제한 회피)
 setTimeout(() => { renderMarketNews(); renderSymbolNews(); }, 700);
 markUpdated();
