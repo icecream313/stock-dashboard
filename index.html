@@ -79,6 +79,19 @@
   .up { color: var(--up); }
   .down { color: var(--down); }
   .flat { color: var(--muted); }
+  /* 관심종목 그룹 (한국/미국/기타) */
+  .wl-group { margin-bottom: 20px; }
+  .wl-group:last-child { margin-bottom: 0; }
+  .wl-group-title {
+    font-size: 0.92rem; font-weight: 700; color: var(--text);
+    margin-bottom: 11px; display: flex; align-items: center; gap: 8px;
+    padding-bottom: 7px; border-bottom: 1px solid var(--border);
+  }
+  .wl-group-count {
+    font-size: 0.72rem; font-weight: 600; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1px 9px;
+  }
   /* 관심종목 카드 */
   .cards {
     display: grid;
@@ -354,6 +367,82 @@
     background: var(--accent); border: none; color: #fff;
     border-radius: 8px; padding: 8px 22px; cursor: pointer; font-size: 0.88rem; font-weight: 600;
   }
+  /* 메인 종합 투자 환경 인포그래픽 */
+  .info-card {
+    background: linear-gradient(135deg, var(--card), rgba(79,140,255,0.04));
+    border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+  }
+  .info-top { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+  .info-gauge { position: relative; width: 124px; height: 124px; flex-shrink: 0; }
+  .info-gauge svg { transform: rotate(-90deg); }
+  .info-gauge .g-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .info-gauge .g-center b { font-size: 1.7rem; line-height: 1; }
+  .info-gauge .g-center span { font-size: 0.66rem; color: var(--muted); margin-top: 3px; }
+  .info-headline { flex: 1; min-width: 220px; }
+  .info-verdict { font-size: 1.15rem; font-weight: 800; margin-bottom: 5px; }
+  .info-sub { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .info-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
+  .info-bar {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px;
+  }
+  .info-bar-head { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; }
+  .info-bar-head .ib-score { margin-left: auto; font-weight: 800; }
+  .info-bar-head .ib-na { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+  .info-bar-track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .info-bar-fill { height: 100%; border-radius: 3px; }
+  .info-bar-note { font-size: 0.72rem; color: var(--muted); margin-top: 7px; line-height: 1.5; }
+  .info-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+  .info-disclaim { font-size: 0.7rem; color: var(--muted); flex: 1; min-width: 200px; line-height: 1.5; }
+  /* 종합 평가 탭 */
+  .sum-dim {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 13px; margin-bottom: 9px;
+  }
+  .sum-dim-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .sum-dim-name { font-size: 0.86rem; font-weight: 700; }
+  .sum-dim-wt { font-size: 0.68rem; color: var(--muted); }
+  .sum-dim-score { margin-left: auto; font-size: 0.95rem; font-weight: 800; }
+  .sum-dim-na { margin-left: auto; font-size: 0.74rem; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px; }
+  .sum-track { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .sum-fill { height: 100%; border-radius: 4px; }
+  .sum-reasons { font-size: 0.74rem; color: var(--muted); margin-top: 8px; line-height: 1.7; }
+  .sum-reasons span { display: inline-block; margin-right: 12px; white-space: nowrap; }
+  .sum-opinion {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 15px; font-size: 0.86rem; line-height: 1.7; margin: 4px 0 14px;
+  }
+  /* AI 설정 모달 */
+  .set-field { margin-bottom: 18px; }
+  .set-field label { display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 7px; }
+  .set-field input, .set-field select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 10px 12px; font-size: 0.9rem;
+  }
+  .set-field input:focus, .set-field select:focus { outline: none; border-color: var(--accent); }
+  .set-note { font-size: 0.73rem; color: var(--muted); margin-top: 6px; line-height: 1.55; }
+  .set-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .set-actions button {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 9px 18px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+  }
+  .set-actions button:hover { border-color: var(--accent); }
+  .set-actions .set-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .set-actions .set-ghost { color: var(--muted); margin-left: auto; }
+  .set-result { font-size: 0.82rem; margin-top: 14px; line-height: 1.5; }
+  /* AI 의견 박스 (종합 인포그래픽·종합탭 공용) */
+  .ai-box {
+    background: linear-gradient(135deg, rgba(79,140,255,0.08), rgba(176,140,255,0.06));
+    border: 1px solid rgba(79,140,255,0.3); border-radius: 12px; padding: 14px 16px; margin-top: 14px;
+  }
+  .ai-box .ai-head { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
+  .ai-box .ai-body { font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap; }
+  .ai-box .ai-body b { color: var(--accent); }
+  .ai-btn {
+    background: linear-gradient(135deg, #4f8cff, #b08cff); border: none; color: #fff;
+    border-radius: 9px; padding: 10px 18px; font-size: 0.86rem; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .ai-btn:disabled { opacity: 0.6; cursor: default; }
   @media (max-width: 800px) {
     .news-grid { grid-template-columns: 1fr; }
     .news-panel { height: 400px; }
@@ -373,11 +462,17 @@
 <header>
   <h1>📈 나의 주식 대시보드</h1>
   <span class="date" id="today"></span>
-  <button class="refresh" id="refresh-btn">🔄 새로고침 <span id="updated-at"></span></button>
+  <button class="refresh" id="settings-btn" title="Claude AI 연동 설정" style="margin-left:auto">⚙️ AI 설정</button>
+  <button class="refresh" id="refresh-btn" style="margin-left:0">🔄 새로고침 <span id="updated-at"></span></button>
 </header>
 
 <!-- ① 거시 지표 -->
 <div class="macro-strip" id="macro-strip"></div>
+
+<!-- 종합 투자 환경 인포그래픽 -->
+<div class="section" id="infographic-section">
+  <div id="main-infographic"><div class="loading">종합 투자 환경을 분석하는 중…</div></div>
+</div>
 
 <!-- 보유 포트폴리오 요약 (보유 정보 입력 시 표시) -->
 <div class="section" id="portfolio-section" hidden>
@@ -407,12 +502,15 @@
     한글 이름이나 티커로 검색해서 목록에서 선택하면 추가됩니다 (국내·미국 지원).
     카드를 클릭하면 시세·재무 분석·기술적 매매신호·뉴스가 있는 상세 화면이 열립니다.
   </div>
-  <div class="cards" id="watchlist"></div>
+  <div id="watchlist"></div>
 </div>
 
 <!-- ③ 뉴스 -->
 <div class="section">
-  <h2>📰 뉴스</h2>
+  <div class="wl-head">
+    <h2>📰 뉴스</h2>
+    <button id="news-filter-toggle" title="연합뉴스·한경·머니투데이 / Reuters·Bloomberg·WSJ 등 신뢰도 높은 매체만 표시"></button>
+  </div>
   <div class="news-grid">
     <div>
       <h2 style="font-size:0.85rem;">시장 전체 (거시)</h2>
@@ -421,6 +519,35 @@
     <div>
       <h2 style="font-size:0.85rem;">선택 종목 — <span id="news-symbol-label"></span></h2>
       <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- AI 설정 모달 -->
+<div class="detail-overlay" id="settings-overlay">
+  <div class="detail-sheet" style="max-width:540px">
+    <div class="detail-head">
+      <div class="d-title"><div class="d-name">🤖 Claude AI 연동 설정</div><div class="d-sub">종합 투자 의견을 AI가 직접 분석해 줍니다</div></div>
+      <button class="d-close" id="settings-close" title="닫기">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="set-field">
+        <label>Anthropic API 키</label>
+        <input type="password" id="set-key" placeholder="sk-ant-..." autocomplete="off">
+        <div class="set-note">키는 <b>이 기기의 브라우저에만</b> 저장되며 서버로 전송되지 않습니다. 호출 비용은 본인 Anthropic 계정으로 청구됩니다. 키 발급: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a></div>
+      </div>
+      <div class="set-field">
+        <label>모델 선택</label>
+        <select id="set-model"></select>
+        <div class="set-note">Opus는 분석 품질이 가장 높고, Haiku는 빠르고 저렴합니다. 종합 의견은 짧아서 비용 부담이 크지 않습니다.</div>
+      </div>
+      <div class="set-actions">
+        <button id="set-save" class="set-primary">저장</button>
+        <button id="set-test">연결 테스트</button>
+        <button id="set-clear" class="set-ghost">키 삭제</button>
+      </div>
+      <div id="set-result" class="set-result"></div>
+      <div class="disclaimer" style="margin-top:18px">⚠️ API 키를 입력하지 않아도 모든 점수·인포그래픽은 규칙 기반으로 동작합니다. AI 연동은 '🤖 Claude 심층 의견' 기능에서만 사용되며, 생성된 의견 역시 투자 권유가 아닌 참고 자료입니다.</div>
     </div>
   </div>
 </div>
@@ -441,14 +568,16 @@
       <button class="d-close" id="d-close" title="닫기">✕</button>
     </div>
     <div class="detail-tabs" id="detail-tabs">
-      <button data-tab="overview" class="active">개요</button>
+      <button data-tab="summary" class="active">종합</button>
+      <button data-tab="overview">개요</button>
       <button data-tab="fund">재무</button>
       <button data-tab="tech">기술</button>
       <button data-tab="future">전망</button>
       <button data-tab="news">뉴스</button>
     </div>
     <div class="detail-body">
-      <div class="d-tab" id="tab-overview"></div>
+      <div class="d-tab" id="tab-summary"></div>
+      <div class="d-tab" id="tab-overview" hidden></div>
       <div class="d-tab" id="tab-fund" hidden></div>
       <div class="d-tab" id="tab-tech" hidden></div>
       <div class="d-tab" id="tab-future" hidden></div>
@@ -505,6 +634,7 @@ const MACRO = [
   { symbol: '^VIX',    label: 'VIX',         fmt: 'num' }
 ];
 let usdkrw = null; // 원/달러 환율 — 미국 보유종목 원화 환산용
+let macroData = {}; // 거시 점수용 — renderMacro에서 심볼별 {price, prev} 저장
 // CORS 프록시 폴백 체인 (정적 페이지에서 외부 API 호출용)
 // corsproxy: 빠르지만 네이버 차단 / allorigins: 전체 지원, 가끔 과부하
 // corsfix·jina: 네이버 포함 전체 지원 / codetabs: 최후 보루
@@ -518,6 +648,39 @@ const PROXY_DEFS = [
 // 호스트별 마지막 성공 프록시 기억 (네이버는 corsproxy가 차단하므로 corsfix(2)부터 시작)
 const proxyAffinity = { 'm.stock.naver.com': 2, 'api.stock.naver.com': 2, 'ac.stock.naver.com': 2 };
 const CACHE_TTL = 3 * 60 * 1000; // 시세 캐시 3분
+
+// ── Claude AI 연동 (하이브리드: 키 입력 시에만 실제 LLM 호출) ──
+const CLAUDE_MODELS = {
+  'claude-opus-4-8': 'Opus 4.8 — 최고 품질',
+  'claude-sonnet-4-6': 'Sonnet 4.6 — 균형 (권장)',
+  'claude-haiku-4-5-20251001': 'Haiku 4.5 — 빠름·저렴'
+};
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
+function getClaudeKey() { return localStorage.getItem('anthropicKey') || ''; }
+function getClaudeModel() { return localStorage.getItem('anthropicModel') || DEFAULT_MODEL; }
+function hasClaudeKey() { return !!getClaudeKey(); }
+async function callClaude(system, user, maxTokens = 1500) {
+  const key = getClaudeKey();
+  if (!key) throw new Error('NO_KEY');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model: getClaudeModel(), max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+    signal: AbortSignal.timeout(60000)
+  });
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try { const e = await res.json(); if (e.error && e.error.message) msg = e.error.message; } catch (x) {}
+    throw new Error(msg);
+  }
+  const j = await res.json();
+  return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+}
 
 let watchlist = loadList();
 let selected = watchlist[0] || DEFAULT_LIST[0];
@@ -642,49 +805,76 @@ async function renderMacro(noCache) {
       if (!d) { chip.querySelector('.price').textContent = '—'; return; }
       const price = lastValid(d.close);
       if (m.symbol === 'KRW=X' && price) { usdkrw = price; updatePortfolio(); }
+      macroData[m.symbol] = { price, prev: d.previousClose };
       const c = chgInfo(price, d.previousClose);
       chip.querySelector('.price').textContent = m.fmt === 'pct' ? price.toFixed(2) + '%' : fmtPrice(price, m.symbol, m.fmt);
       const chg = chip.querySelector('.chg');
       chg.className = 'chg ' + c.cls;
       chg.textContent = c.text;
     });
+    if (typeof renderMainInfographic === 'function') renderMainInfographic();
   } catch (e) {
     document.querySelectorAll('.macro-chip .price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
   }
 }
 
 // ───────────────────────── ② 관심종목 카드 ─────────────────────────
+// 종목 카테고리 분류 (그룹 헤더용)
+const WL_GROUPS = [
+  { cat: 'kr',  label: '🇰🇷 한국주식' },
+  { cat: 'us',  label: '🇺🇸 미국주식' },
+  { cat: 'etc', label: '🌏 기타' }
+];
+function categoryOf(symbol) {
+  if (isKorean(symbol)) return 'kr';
+  if (/^[A-Za-z][A-Za-z.\-]*$/.test(symbol)) return 'us'; // 순수 영문 티커 = 미국
+  return 'etc';
+}
+
+function buildCard(item) {
+  const card = document.createElement('div');
+  card.className = 'card' + (item.symbol === selected.symbol ? ' selected' : '');
+  card.innerHTML = `
+    <button class="del" title="삭제">✕</button>
+    <div class="name">${esc(item.name || item.symbol)}</div>
+    <div class="sym">${esc(item.symbol)}</div>
+    <div class="price">…</div>
+    <div class="chg flat">—</div>
+    <div class="rets"></div>
+    <div class="holding-line" hidden></div>
+    <canvas></canvas>`;
+  card.querySelector('.del').onclick = e => {
+    e.stopPropagation();
+    if (!confirm(`'${item.name || item.symbol}' 종목을 삭제할까요?`)) return;
+    watchlist = watchlist.filter(w => w.symbol !== item.symbol);
+    saveList();
+    if (selected.symbol === item.symbol && watchlist.length) selectStock(watchlist[0]);
+    renderWatchlist();
+  };
+  card.onclick = () => { selectStock(item); openDetail(item); };
+  card.dataset.symbol = item.symbol;
+  return card;
+}
+
 function renderWatchlist(noCache) {
-  const grid = document.getElementById('watchlist');
-  grid.innerHTML = '';
+  const root = document.getElementById('watchlist');
+  root.innerHTML = '';
   if (!watchlist.length) {
-    grid.innerHTML = '<div class="hint" style="padding:18px 4px">관심종목이 없습니다. 위 검색창에서 종목 이름을 검색해 추가해 보세요.</div>';
+    root.innerHTML = '<div class="hint" style="padding:18px 4px">관심종목이 없습니다. 위 검색창에서 종목 이름을 검색해 추가해 보세요.</div>';
     updatePortfolio();
     return;
   }
-  watchlist.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'card' + (item.symbol === selected.symbol ? ' selected' : '');
-    card.innerHTML = `
-      <button class="del" title="삭제">✕</button>
-      <div class="name">${esc(item.name || item.symbol)}</div>
-      <div class="sym">${esc(item.symbol)}</div>
-      <div class="price">…</div>
-      <div class="chg flat">—</div>
-      <div class="rets"></div>
-      <div class="holding-line" hidden></div>
-      <canvas></canvas>`;
-    card.querySelector('.del').onclick = e => {
-      e.stopPropagation();
-      if (!confirm(`'${item.name || item.symbol}' 종목을 삭제할까요?`)) return;
-      watchlist = watchlist.filter(w => w.symbol !== item.symbol);
-      saveList();
-      if (selected.symbol === item.symbol && watchlist.length) selectStock(watchlist[0]);
-      renderWatchlist();
-    };
-    card.onclick = () => { selectStock(item); openDetail(item); };
-    card.dataset.symbol = item.symbol;
-    grid.appendChild(card);
+  // 카테고리 그룹별 섹션 렌더 (빈 그룹은 숨김)
+  WL_GROUPS.forEach(g => {
+    const items = watchlist.filter(it => categoryOf(it.symbol) === g.cat);
+    if (!items.length) return;
+    const group = document.createElement('div');
+    group.className = 'wl-group';
+    group.dataset.cat = g.cat;
+    group.innerHTML = `<h3 class="wl-group-title">${g.label} <span class="wl-group-count">${items.length}</span></h3><div class="cards"></div>`;
+    const box = group.querySelector('.cards');
+    items.forEach(item => box.appendChild(buildCard(item)));
+    root.appendChild(group);
   });
   fillCards(noCache);
 }
@@ -738,6 +928,7 @@ async function fillCards(noCache) {
   });
   sortCards();
   updatePortfolio();
+  if (typeof renderMainInfographic === 'function') renderMainInfographic();
 }
 
 // ── 보유 손익 (수량·평단가는 상세 화면 개요 탭에서 입력) ──
@@ -791,9 +982,6 @@ sortSel.onchange = () => { localStorage.setItem('wl-sort', sortSel.value); sortC
 
 function sortCards() {
   const mode = sortSel.value;
-  if (mode === 'added') return; // 저장된 순서 그대로
-  const grid = document.getElementById('watchlist');
-  const cards = [...grid.querySelectorAll('.card')];
   const keyOf = sym => {
     const item = watchlist.find(w => w.symbol === sym);
     const q = quoteCache[sym] || {};
@@ -802,15 +990,21 @@ function sortCards() {
     if (mode === 'pl') { const pl = item && holdingPL(item); return pl ? pl.pct : -Infinity; }
     return 0;
   };
-  cards.sort((a, b) => {
-    if (mode === 'name') {
-      const an = (watchlist.find(w => w.symbol === a.dataset.symbol) || {}).name || a.dataset.symbol;
-      const bn = (watchlist.find(w => w.symbol === b.dataset.symbol) || {}).name || b.dataset.symbol;
-      return an.localeCompare(bn, 'ko');
-    }
-    return keyOf(b.dataset.symbol) - keyOf(a.dataset.symbol); // 내림차순
+  // 각 카테고리 그룹 내부에서 정렬 (그룹 간 순서는 고정)
+  document.querySelectorAll('#watchlist .wl-group .cards').forEach(grid => {
+    const cards = [...grid.querySelectorAll('.card')];
+    cards.sort((a, b) => {
+      if (mode === 'added') // 저장된(watchlist) 순서
+        return watchlist.findIndex(w => w.symbol === a.dataset.symbol) - watchlist.findIndex(w => w.symbol === b.dataset.symbol);
+      if (mode === 'name') {
+        const an = (watchlist.find(w => w.symbol === a.dataset.symbol) || {}).name || a.dataset.symbol;
+        const bn = (watchlist.find(w => w.symbol === b.dataset.symbol) || {}).name || b.dataset.symbol;
+        return an.localeCompare(bn, 'ko');
+      }
+      return keyOf(b.dataset.symbol) - keyOf(a.dataset.symbol); // 내림차순
+    });
+    cards.forEach(c => grid.appendChild(c));
   });
-  cards.forEach(c => grid.appendChild(c));
 }
 
 // ── 관심종목 공유 링크 (기기 간 이동: localStorage가 브라우저별이라 링크로 전달) ──
@@ -881,6 +1075,26 @@ function drawSparkline(canvas, data, cls) {
 }
 
 // ───────────────────────── ③ 뉴스 (구글뉴스 RSS) ─────────────────────────
+// 신뢰 소스 화이트리스트 — 부분일치(매체명이 source나 제목에 포함되면 통과)
+const TRUSTED_SOURCES = [
+  // 국내 경제·종합지
+  '연합뉴스', '연합인포맥스', '한국경제', '한경', '매일경제', '매경', '머니투데이',
+  '서울경제', '이데일리', '파이낸셜뉴스', '조선비즈', '비즈워치', '인포스탁',
+  '헤럴드경제', '아시아경제', '뉴스핌', '뉴시스', '데일리안', 'KBS', 'MBC', 'SBS',
+  'YTN', '한겨레', '조선일보', '중앙일보', '동아일보', '매일경제TV', '한국경제TV',
+  '더벨', '딜사이트', 'EBN', '디지털타임스', '전자신문', 'ZDNet', '블로터',
+  // 해외 신뢰 매체
+  'Reuters', 'Bloomberg', 'Wall Street Journal', 'WSJ', 'CNBC', 'Financial Times',
+  'MarketWatch', "Barron's", 'Barron', 'Yahoo Finance', 'The Motley Fool',
+  'Investing.com', 'Seeking Alpha', 'Forbes', 'Business Insider', 'Associated Press',
+  'Nikkei', 'Financial Post', 'TheStreet', "Investor's Business Daily"
+];
+let newsTrustedOnly = localStorage.getItem('newsTrustedOnly') !== '0'; // 기본: 신뢰소스만
+function isTrustedSource(source, title) {
+  const hay = ((source || '') + ' ' + (title || '')).toLowerCase();
+  return TRUSTED_SOURCES.some(s => hay.includes(s.toLowerCase()));
+}
+
 // 뉴스 제목 키워드 기반 투자점수 (가중치 2 = 강한 신호, 1 = 일반 신호)
 const NEWS_POS = [['급등', 2], ['신고가', 2], ['상한가', 2], ['어닝서프라이즈', 2], ['흑자전환', 2], ['흑자 전환', 2],
   ['목표가 상향', 2], ['목표주가 상향', 2], ['사상 최대', 2], ['최대 실적', 2], ['호실적', 2], ['깜짝 실적', 2],
@@ -915,7 +1129,7 @@ async function renderNews(el, rssUrl, attempt) {
     const items = [...doc.querySelectorAll('item')].slice(0, 25);
     if (!items.length) throw new Error('empty');
     el.innerHTML = '';
-    const scored = items.map(it => {
+    let scored = items.map(it => {
       const title = it.querySelector('title')?.textContent || '';
       return {
         title,
@@ -925,6 +1139,12 @@ async function renderNews(el, rssUrl, attempt) {
         s: scoreNews(title)
       };
     });
+    // 신뢰 소스 필터 (토글 ON & 필터 후 1건 이상일 때만 적용 — 0건이면 전체 표시)
+    let filteredOut = 0;
+    if (newsTrustedOnly) {
+      const kept = scored.filter(x => isTrustedSource(x.source, x.title));
+      if (kept.length) { filteredOut = scored.length - kept.length; scored = kept; }
+    }
     // 투자 분위기 요약 (점수 합산 공개)
     const nPos = scored.filter(x => x.s > 0).length;
     const nNeg = scored.filter(x => x.s < 0).length;
@@ -935,7 +1155,7 @@ async function renderNews(el, rssUrl, attempt) {
     sum.className = 'news-senti';
     sum.innerHTML = `🧮 투자 분위기: <b class="good">호재 ${nPos}</b> · <b style="color:var(--muted)">중립 ${nNeu}</b> · <b class="bad">악재 ${nNeg}</b>
       — 합산 점수 <b class="${netCls}">${net >= 0 ? '+' : ''}${net}</b>
-      <span class="senti-note">제목 키워드 기반 자동 채점(참고용) · 점수는 기사별 배지에 표시</span>`;
+      <span class="senti-note">제목 키워드 기반 자동 채점(참고용) · 점수는 기사별 배지에 표시${newsTrustedOnly ? (filteredOut ? ` · 🛡️ 신뢰 소스만 표시 (${filteredOut}건 숨김)` : ' · 🛡️ 신뢰 소스만') : ' · 전체 소스 표시'}</span>`;
     el.appendChild(sum);
     scored.forEach(x => {
       const a = document.createElement('a');
@@ -950,6 +1170,8 @@ async function renderNews(el, rssUrl, attempt) {
       a.querySelector('.meta').textContent = `${x.source} · ${relTime(x.pub)}`;
       el.appendChild(a);
     });
+    // 시장 뉴스 감성을 메인 인포그래픽에 반영
+    if (el.id === 'market-news') { marketNewsNet = net; if (typeof renderMainInfographic === 'function') renderMainInfographic(); }
   } catch (e) {
     if (!attempt) {
       // 일시적 프록시 차단(요청 폭주) 대비 한 번 재시도
@@ -964,6 +1186,24 @@ async function renderNews(el, rssUrl, attempt) {
 function gnewsSearch(q) {
   return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
 }
+
+// 뉴스 신뢰 소스 필터 토글
+const newsFilterBtn = document.getElementById('news-filter-toggle');
+function syncNewsFilterBtn() {
+  newsFilterBtn.textContent = newsTrustedOnly ? '🛡️ 신뢰 소스만' : '🌐 전체 소스';
+  newsFilterBtn.style.borderColor = newsTrustedOnly ? 'var(--accent)' : 'var(--border)';
+  newsFilterBtn.style.color = newsTrustedOnly ? 'var(--accent)' : 'var(--muted)';
+}
+newsFilterBtn.onclick = () => {
+  newsTrustedOnly = !newsTrustedOnly;
+  localStorage.setItem('newsTrustedOnly', newsTrustedOnly ? '1' : '0');
+  syncNewsFilterBtn();
+  renderMarketNews();
+  renderSymbolNews();
+  // 상세 모달이 열려 있으면 모달 뉴스도 갱신
+  if (detailItem) renderNews(document.getElementById('tab-news'), gnewsSearch((detailItem.name || detailItem.symbol) + ' when:14d'));
+};
+syncNewsFilterBtn();
 
 function renderMarketNews() {
   // 검색 쿼리형 RSS는 프록시에서 자주 실패해 경제 토픽 헤드라인 피드로 교체
@@ -1104,7 +1344,9 @@ async function loadDetailData(item) {
       annual: annual.financeInfo, quarter,
       researches: integ.researches || [],
       profile: cs ? [cs.comment1, cs.comment2, cs.comment3].filter(Boolean).join(' ') : null,
-      unit: '억원 · %, 배 생략'
+      unit: '억원 · %, 배 생략',
+      dealTrend: integ.dealTrendInfos || [],          // 외인·기관·개인 수급 (국내 전용)
+      industryCompare: integ.industryCompareInfo || [] // 동종 업종 비교
     };
   } else {
     const reuters = item.reuters || await resolveReuters(item.symbol);
@@ -1123,7 +1365,9 @@ async function loadDetailData(item) {
       annual, quarter,
       researches: [],
       profile: (integ.summaries && integ.summaries.summary) || null,
-      unit: annual.unit || 'USD(백만) · %, 배 생략'
+      unit: annual.unit || 'USD(백만) · %, 배 생략',
+      dealTrend: [],                                   // 미국은 외인·기관 수급 미제공
+      industryCompare: integ.industryCompareInfo || [] // 동종 업종 비교
     };
   }
 }
@@ -1176,7 +1420,8 @@ function openDetail(item) {
     dchg.textContent = c.text;
   } else dchg.textContent = '';
   // 탭 초기화
-  switchTab('overview');
+  switchTab('summary');
+  document.getElementById('tab-summary').innerHTML = '<div class="d-loading">6개 항목을 종합 분석하는 중…</div>';
   document.getElementById('tab-overview').innerHTML = '<div class="d-loading">기업 정보를 불러오는 중…</div>';
   document.getElementById('tab-fund').innerHTML = '<div class="d-loading">불러오는 중…</div>';
   document.getElementById('tab-future').innerHTML = '<div class="d-loading">불러오는 중…</div>';
@@ -1195,9 +1440,10 @@ function openDetail(item) {
     renderOverviewTab(d, item);
     renderFundTab(d, item);
     renderFutureTab(d, item);
+    renderSummaryTab(d, item); // 종합 평가 (재무·기술·뉴스·거시·미시·업종)
   }).catch(e => {
     if (detailItem !== item) return;
-    ['tab-overview', 'tab-fund', 'tab-future'].forEach(id => {
+    ['tab-summary', 'tab-overview', 'tab-fund', 'tab-future'].forEach(id => {
       const el = document.getElementById(id);
       el.innerHTML = '<div class="d-loading">기업 정보를 불러오지 못했습니다.<br>무료 데이터 경유 서버가 일시적으로 느릴 수 있습니다.<br><br><button class="retry-btn">다시 시도</button></div>';
       el.querySelector('.retry-btn').onclick = () => openDetail(item);
@@ -1299,12 +1545,73 @@ function renderOverviewTab(d, item) {
   };
 }
 
-// ── ② 재무 분석 탭 (투자적합도 + 실적·재무제표 통합) ──
+// ── ② 재무 분석 탭 (가이던스 + 투자적합도 + 실적·재무제표 통합) ──
+// 컨센서스 추정치 sanity 가드 — 네이버 원본에 간혹 비현실적인 (E)값이 섞임
+// (예: 삼성전자 2026E 영업이익률 51%처럼 직전 대비 비정상 급등). 종합점수에서도 재사용.
+function estimateAnomaly(d) {
+  const opTitle = d.kr ? '영업이익' : '영업이익';
+  const revS = finSeries(d.annual, '매출액');
+  const opS = finSeries(d.annual, opTitle);
+  const estRev = revS.find(x => x.est && x.value != null);
+  const estOp = opS.find(x => x.est && x.value != null);
+  const actRev = [...revS].reverse().find(x => !x.est && x.value != null);
+  const actOp = [...opS].reverse().find(x => !x.est && x.value != null);
+  if (!estRev || !estOp || !actRev || !actOp || !estRev.value || !actRev.value) return false;
+  const estMargin = estOp.value / estRev.value * 100;
+  const actMargin = actOp.value / actRev.value * 100;
+  // 추정 영업이익률이 직전 대비 +20%p 초과 급등 또는 절대 45% 초과면 데이터 이상치로 간주
+  return (estMargin - actMargin > 20) || estMargin > 45;
+}
+
+// 다음 가이던스: 증권사 컨센서스 추정 실적·EPS·목표주가·투자의견 요약 카드
+function buildGuidanceHTML(d, item) {
+  const cur = quoteCache[item.symbol] && quoteCache[item.symbol].price;
+  const fmtG = v => v == null ? '—' : v.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+  const fwdTitles = d.kr ? ['매출액', '영업이익', '당기순이익'] : ['매출액', '당기순이익'];
+  const rows = [];
+  let estLabel = '';
+  fwdTitles.forEach(title => {
+    const s = finSeries(d.annual, title);
+    const est = s.filter(x => x.est && x.value != null);
+    const act = s.filter(x => !x.est && x.value != null);
+    if (est.length && act.length && act[act.length - 1].value !== 0) {
+      estLabel = est[0].label;
+      const base = act[act.length - 1].value;
+      rows.push({ title, est: est[0].value, g: (est[0].value - base) / Math.abs(base) * 100 });
+    }
+  });
+  const fper = infoVal(d.infos, '추정PER'), feps = infoVal(d.infos, '추정EPS');
+  const target = d.consensus && numOf(d.consensus.priceTargetMean);
+  const rec = d.consensus && numOf(d.consensus.recommMean);
+  if (!rows.length && !fper && !target && !rec) return ''; // 가이던스 데이터 없으면 섹션 숨김
+  const anomaly = rows.length && estimateAnomaly(d);
+  let h = `<div class="fund-divider" style="border-top:none;padding-top:0;margin-top:0">🔮 다음 가이던스 <span style="font-weight:400;font-size:0.76rem;color:var(--muted)">— 증권사 컨센서스 추정${estLabel ? ' (' + esc(estLabel) + ')' : ''}</span></div>`;
+  if (anomaly) h += `<div class="disclaimer" style="margin-top:0;margin-bottom:12px;background:rgba(231,76,60,0.08);border-color:rgba(231,76,60,0.3)">⚠️ 이 종목은 네이버 컨센서스 <b>원본 추정값에 이상치(비현실적 이익률 등)가 포함</b>되어 있습니다. 아래 추정 실적은 신뢰도가 낮으니 목표주가·투자의견 위주로 참고하세요.</div>`;
+  h += '<div class="metric-grid">';
+  rows.forEach(r => {
+    const cls = anomaly ? 'flat' : r.g > 0 ? 'up' : r.g < 0 ? 'down' : 'flat';
+    h += `<div class="metric"><div class="k">${r.title} 추정${anomaly ? ' ⚠️' : ''}</div><div class="v">${fmtG(r.est)} <span style="font-size:0.76rem" class="${cls}">${r.g >= 0 ? '+' : ''}${r.g.toFixed(1)}%</span></div></div>`;
+  });
+  if (fper) h += `<div class="metric"><div class="k">추정 PER (선행)</div><div class="v">${esc(fper)}</div></div>`;
+  if (feps) h += `<div class="metric"><div class="k">추정 EPS</div><div class="v">${esc(feps)}</div></div>`;
+  if (target) {
+    const up = cur ? (target - cur) / cur * 100 : null;
+    h += `<div class="metric"><div class="k">목표주가 평균</div><div class="v">${fmtPrice(target, item.symbol)}${up != null ? ` <span style="font-size:0.76rem" class="${up >= 0 ? 'up' : 'down'}">${up >= 0 ? '+' : ''}${up.toFixed(1)}%</span>` : ''}</div></div>`;
+  }
+  if (rec) {
+    const txt = rec >= 4.5 ? '적극매수' : rec >= 3.5 ? '매수' : rec >= 2.5 ? '중립' : rec >= 1.5 ? '매도' : '적극매도';
+    h += `<div class="metric"><div class="k">투자의견</div><div class="v">${txt} <span style="font-size:0.76rem;color:var(--muted)">${rec.toFixed(2)}/5</span></div></div>`;
+  }
+  h += '</div>';
+  if (rows.length) h += `<div class="unit-note">추정 실적 단위: ${d.unit} · 컨센서스는 증권사 추정 평균으로 수시 변경됩니다.</div>`;
+  return h;
+}
+
 let finPeriod = 'annual';
 function renderFundTab(d, item) {
   const el = document.getElementById('tab-fund');
   finPeriod = 'annual';
-  let html = buildFitHTML(d, item);
+  let html = buildGuidanceHTML(d, item) + buildFitHTML(d, item);
   html += '<div class="fund-divider">📊 실적·재무제표</div>';
   html += '<div class="fin-toggle"><button data-p="annual" class="active">연간</button>';
   if (d.quarter) html += '<button data-p="quarter">분기</button>';
@@ -1873,6 +2180,403 @@ function renderFutureTab(d, item) {
   if (!html) html = '<div class="d-loading">이 종목의 전망 데이터가 제공되지 않습니다.</div>';
   else html += `<div class="disclaimer">⚠️ 목표주가·컨센서스·리포트는 증권사 추정과 의견으로 수시로 변경되며 실제와 다를 수 있습니다. 미래 전망 데이터는 보장이 아닌 참고 자료입니다.</div>`;
   el.innerHTML = html;
+}
+
+// ── ⓪ 종합 평가 탭 (재무·기술·미시·뉴스·업종·거시 6항목 + Claude 종합 의견) ──
+async function fetchNewsScored(item) {
+  const xml = await fetchViaProxy(gnewsSearch((item.name || item.symbol) + ' 주가 when:7d'), true);
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const items = [...doc.querySelectorAll('item')].slice(0, 25);
+  if (!items.length) return null;
+  let scored = items.map(it => {
+    const title = it.querySelector('title')?.textContent || '';
+    return { title, source: it.querySelector('source')?.textContent || '', s: scoreNews(title) };
+  });
+  if (newsTrustedOnly) { const k = scored.filter(x => isTrustedSource(x.source, x.title)); if (k.length) scored = k; }
+  return scored;
+}
+
+function ruleOpinion(parts, comp, item) {
+  const g = scoreGrade(comp.score);
+  const strong = SCORE_DIMS.filter(dm => parts[dm.key] && parts[dm.key].score >= 65).map(dm => dm.label);
+  const weak = SCORE_DIMS.filter(dm => parts[dm.key] && parts[dm.key].score < 45).map(dm => dm.label);
+  let t = `${esc(item.name || item.symbol)}의 종합 점수는 <b>${comp.score}점 (${g.txt})</b>입니다. `;
+  if (strong.length) t += `상대적 강점은 <b>${strong.join('·')}</b> 항목이고, `;
+  if (weak.length) t += `주의가 필요한 항목은 <b>${weak.join('·')}</b>입니다. `;
+  else if (strong.length) t += `뚜렷한 약점 항목은 없습니다. `;
+  if (!strong.length && !weak.length) t += `대부분 항목이 중립 구간에 있어 방향성이 뚜렷하지 않습니다. `;
+  return t;
+}
+
+async function claudeStockOpinion(item, d, parts, comp) {
+  const lines = SCORE_DIMS.map(dm => {
+    const p = parts[dm.key];
+    return `- ${dm.label}(가중 ${Math.round(dm.weight * 100)}%): ` +
+      (p ? `${p.score}점 — ${p.summary}${p.reasons && p.reasons.length ? ' [' + p.reasons.join(', ') + ']' : ''}` : '데이터 없음');
+  }).join('\n');
+  const cur = quoteCache[item.symbol] && fmtPrice(quoteCache[item.symbol].price, item.symbol);
+  const target = d.consensus && numOf(d.consensus.priceTargetMean);
+  const sys = '당신은 한국어로 답하는 신중한 주식 애널리스트입니다. 제공된 정량 지표만 근거로 평가하며, 단정적인 매수/매도 단언은 피하고 균형 잡힌 시각을 유지합니다. 모든 답변은 투자 권유가 아닌 참고 의견임을 전제로 합니다.';
+  const user = `다음은 '${item.name || item.symbol}'(${item.symbol})의 규칙 기반 항목별 투자 점수입니다 (각 0~100, 높을수록 우호적).\n\n종합점수: ${comp.score}/100\n${lines}` +
+    `${cur ? '\n\n현재가: ' + cur : ''}${target ? '\n애널리스트 평균 목표주가: ' + fmtPrice(target, item.symbol) : ''}` +
+    `\n\n위 지표를 바탕으로 6~8문장으로 종합 평가를 작성하세요. 포함할 내용: (1) 전반적 투자 매력도 한 줄 요약, (2) 가장 두드러진 강점 1~2가지와 그 의미, (3) 가장 유의할 리스크 1~2가지, (4) 어떤 투자 성향·관점에 적합한지. 핵심 단어는 **굵게** 표시하세요.`;
+  return await callClaude(sys, user, 1024);
+}
+
+function renderAiZone(item, d, parts, comp) {
+  const zone = document.getElementById('sum-ai-zone');
+  if (!zone) return;
+  zone.innerHTML = `<button class="ai-btn" id="sum-ai-btn">${hasClaudeKey() ? '🤖 Claude 심층 의견 받기' : '🤖 Claude 의견 (AI 설정 필요)'}</button>`;
+  document.getElementById('sum-ai-btn').onclick = async () => {
+    if (!hasClaudeKey()) { document.getElementById('settings-btn').click(); return; }
+    const btn = document.getElementById('sum-ai-btn');
+    btn.disabled = true; btn.textContent = '🤖 Claude가 분석 중…';
+    if (!document.getElementById('sum-ai-box'))
+      zone.insertAdjacentHTML('beforeend', '<div class="ai-box" id="sum-ai-box"><div class="ai-head">🤖 Claude 심층 의견</div><div class="ai-body" id="sum-ai-body">생성 중…</div></div>');
+    try {
+      const txt = await claudeStockOpinion(item, d, parts, comp);
+      if (detailItem !== item) return;
+      document.getElementById('sum-ai-body').innerHTML = esc(txt).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      btn.style.display = 'none';
+    } catch (e) {
+      const body = document.getElementById('sum-ai-body');
+      if (body) body.innerHTML = '<span class="bad">생성 실패: ' + esc(e.message) + '</span>';
+      btn.disabled = false; btn.textContent = '🤖 다시 시도';
+    }
+  };
+}
+
+function paintSummary(el, d, item, parts, flags) {
+  flags = flags || {};
+  const comp = compositeScore(parts);
+  let html = '';
+  if (comp) {
+    const g = scoreGrade(comp.score);
+    const R = 56, CIRC = 2 * Math.PI * R;
+    html += `<div class="fit-top">
+      <div class="gauge">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="${R}" fill="none" stroke="#2a2e3a" stroke-width="11"/>
+          <circle cx="65" cy="65" r="${R}" fill="none" stroke="${g.color}" stroke-width="11" stroke-linecap="round"
+            stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - comp.score / 100)}"/>
+        </svg>
+        <div class="score"><b>${comp.score}</b><span>/ 100점</span></div>
+      </div>
+      <div class="fit-summary">
+        <div class="fit-grade ${g.cls}">종합 ${g.txt}</div>
+        <div class="fit-desc">재무·기술·미시·뉴스·업종·거시 <b>${comp.used.length}개 항목</b>을 가중 평균한 규칙 기반 종합 점수입니다. 가중치·근거는 아래에 공개됩니다.${flags.techPending || flags.newsPending ? '<br><span style="color:var(--accent)">⏳ 기술·뉴스 항목 분석 중 — 잠시 후 자동 반영됩니다.</span>' : ''}</div>
+      </div>
+    </div>`;
+    html += `<div class="sum-opinion">🧭 <b>요약 의견:</b> ${ruleOpinion(parts, comp, item)}</div>`;
+  } else {
+    html += '<div class="d-loading">종합 점수를 계산할 데이터가 부족합니다.</div>';
+  }
+  SCORE_DIMS.forEach(dim => {
+    const p = parts[dim.key];
+    const pending = (dim.key === 'technical' && flags.techPending) || (dim.key === 'news' && flags.newsPending);
+    html += `<div class="sum-dim"><div class="sum-dim-head"><span>${dim.icon}</span><span class="sum-dim-name">${dim.label}</span><span class="sum-dim-wt">가중 ${Math.round(dim.weight * 100)}%</span>`;
+    if (p) {
+      const g = scoreGrade(p.score);
+      html += `<span class="sum-dim-score ${g.cls}">${p.score}</span></div>
+        <div class="sum-track"><div class="sum-fill" style="width:${p.score}%;background:${g.color}"></div></div>
+        <div class="sum-reasons">${esc(p.summary)}${p.reasons && p.reasons.length ? '<br>' + p.reasons.map(r => `<span>${esc(r)}</span>`).join('') : ''}</div>`;
+    } else {
+      html += `<span class="sum-dim-na">${pending ? '분석 중…' : '데이터 없음'}</span></div>`;
+    }
+    html += `</div>`;
+  });
+  html += `<div id="sum-ai-zone" style="margin-top:8px"></div>`;
+  html += `<div class="disclaimer">⚠️ 종합·항목별 점수는 공개 데이터를 규칙으로 계산한 <b>참고용 지표</b>이며 투자 권유가 아닙니다. 업종·거시 항목은 당일·단기 데이터 비중이 커 변동이 큽니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
+  el.innerHTML = html;
+  if (comp) renderAiZone(item, d, parts, comp);
+}
+
+async function renderSummaryTab(d, item) {
+  const el = document.getElementById('tab-summary');
+  const compute = (bars, newsScored) => ({
+    finance: scoreFinanceVal(d, item),
+    technical: bars ? scoreTechnicalVal(bars) : null,
+    micro: scoreMicroVal(d),
+    news: newsScored ? scoreNewsVal(newsScored) : null,
+    industry: scoreIndustryVal(d, item),
+    macro: scoreMacroVal()
+  });
+  // 1차 렌더: 기술·뉴스 보류 상태
+  paintSummary(el, d, item, compute(null, null), { techPending: true, newsPending: true });
+  // 기술 bars 확보 (renderTechTab이 채우는 techState 우선, 최대 ~12초 폴링)
+  let bars = null;
+  for (let i = 0; i < 30; i++) {
+    if (detailItem !== item) return;
+    if (techState && techState.item === item && techState.bars && techState.bars.length >= 30) { bars = techState.bars; break; }
+    await new Promise(r => setTimeout(r, 400));
+  }
+  if (!bars) { // 폴링 실패 시 직접 로드 (캐시 활용)
+    try {
+      const r = await fetchChart(item.symbol, '1y', '1d');
+      const q = r.indicators.quote[0];
+      bars = (r.timestamp || []).map((t, i) => ({ time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i], volume: (q.volume && q.volume[i]) || 0 })).filter(b => b.close != null && b.open != null && b.high != null && b.low != null);
+      if (bars.length < 30) bars = null;
+    } catch (e) {}
+  }
+  // 뉴스 점수
+  let newsScored = null;
+  try { newsScored = await fetchNewsScored(item); } catch (e) {}
+  if (detailItem !== item) return;
+  // 2차 렌더: 전체 반영
+  paintSummary(el, d, item, compute(bars, newsScored), {});
+}
+
+// ═════════════════════ 종합 투자 점수 엔진 (규칙 기반) ═════════════════════
+// 각 함수 → {score:0~100, summary, reasons[]} 또는 데이터 없으면 null
+const SCORE_DIMS = [
+  { key: 'finance',  label: '재무',      icon: '📊', weight: 0.28 },
+  { key: 'technical',label: '기술',      icon: '📈', weight: 0.20 },
+  { key: 'micro',    label: '미시(수급)',icon: '💧', weight: 0.14 },
+  { key: 'news',     label: '뉴스',      icon: '📰', weight: 0.14 },
+  { key: 'industry', label: '업종',      icon: '🏭', weight: 0.12 },
+  { key: 'macro',    label: '거시',      icon: '🌐', weight: 0.12 }
+];
+
+function scoreFinanceVal(d, item) {
+  const checks = buildChecks(d, item);
+  if (!checks.length) return null;
+  const got = checks.reduce((a, c) => a + (c.grade === 'good' ? 2 : c.grade === 'mid' ? 1 : 0), 0);
+  const score = Math.round(got / (checks.length * 2) * 100);
+  const good = checks.filter(c => c.grade === 'good');
+  const bad = checks.filter(c => c.grade === 'bad');
+  return {
+    score,
+    summary: `${checks.length}개 지표 중 긍정 ${good.length} · 주의 ${bad.length}`,
+    reasons: [...good.slice(0, 2).map(c => '✓ ' + c.title), ...bad.slice(0, 2).map(c => '✗ ' + c.title)]
+  };
+}
+
+function scoreTechnicalVal(bars) {
+  if (!bars || bars.length < 30) return null;
+  let sigs;
+  try { sigs = computeSignals(bars); } catch (e) { return null; } // computeSignals는 techState 전역에 의존 — 미설정 시 안전 제외
+  if (!sigs.length) return null;
+  const buy = sigs.filter(s => s.grade === 'buy').length;
+  const sell = sigs.filter(s => s.grade === 'sell').length;
+  const score = Math.max(0, Math.min(100, Math.round(50 + (buy - sell) / sigs.length * 50)));
+  return {
+    score,
+    summary: `${sigs.length}개 지표 중 매수 ${buy} · 매도 ${sell}`,
+    reasons: sigs.filter(s => s.grade !== 'neutral').slice(0, 3).map(s => (s.grade === 'buy' ? '▲ ' : '▼ ') + s.title)
+  };
+}
+
+function scoreNewsVal(scored) {
+  if (!scored || !scored.length) return null;
+  const net = scored.reduce((a, x) => a + x.s, 0);
+  const pos = scored.filter(x => x.s > 0).length, neg = scored.filter(x => x.s < 0).length;
+  const score = Math.max(0, Math.min(100, Math.round(50 + net * 4))); // net ±12 부근에서 포화
+  return { score, summary: `호재 ${pos} · 악재 ${neg} · 합산 ${net >= 0 ? '+' : ''}${net}`, reasons: [] };
+}
+
+function scoreMacroVal() {
+  const md = macroData;
+  let pts = 0, max = 0; const reasons = [];
+  const chkUp = (sym, label) => {
+    const d = md[sym];
+    if (d && d.price != null && d.prev) { max++; if (d.price >= d.prev) { pts++; reasons.push('▲ ' + label + ' 상승'); } else reasons.push('▼ ' + label + ' 하락'); }
+  };
+  chkUp('^KS11', '코스피'); chkUp('^IXIC', '나스닥'); chkUp('^GSPC', 'S&P500');
+  const vix = md['^VIX'];
+  if (vix && vix.price != null) { max++; if (vix.price < 20) { pts++; reasons.push('VIX ' + vix.price.toFixed(1) + ' 안정'); } else reasons.push('VIX ' + vix.price.toFixed(1) + ' 경계'); }
+  const tnx = md['^TNX'];
+  if (tnx && tnx.price != null && tnx.prev) { max++; if (tnx.price <= tnx.prev) { pts++; reasons.push('▼ 미 10년물 금리 안정'); } else reasons.push('▲ 금리 상승 부담'); }
+  if (!max) return null;
+  return { score: Math.round(pts / max * 100), summary: `시장 ${max}개 지표 중 우호 ${pts}`, reasons: reasons.slice(0, 4) };
+}
+
+function scoreMicroVal(d) {
+  const dt = d.dealTrend || [];
+  if (!dt.length) return null; // 미국 등 수급 미제공 → 차원 제외
+  const sum = key => dt.slice(0, 5).reduce((a, x) => a + (numOf(x[key]) || 0), 0);
+  const fNet = sum('foreignerPureBuyQuant'), oNet = sum('organPureBuyQuant');
+  let pts = 0, max = 0; const reasons = [];
+  max += 2; if (fNet > 0) { pts += 2; reasons.push('✓ 외국인 5일 순매수'); } else reasons.push('✗ 외국인 5일 순매도');
+  max += 2; if (oNet > 0) { pts += 2; reasons.push('✓ 기관 5일 순매수'); } else reasons.push('✗ 기관 5일 순매도');
+  if (dt.length >= 2) {
+    const recent = numOf(dt[0].foreignerHoldRatio), old = numOf(dt[Math.min(4, dt.length - 1)].foreignerHoldRatio);
+    if (recent != null && old != null) { max++; if (recent >= old) { pts++; reasons.push('✓ 외국인 보유비중 증가'); } else reasons.push('✗ 외국인 보유비중 감소'); }
+  }
+  return { score: Math.round(pts / max * 100), summary: '외국인·기관 수급 종합 (최근 5거래일)', reasons };
+}
+
+function scoreIndustryVal(d, item) {
+  const peers = (d.industryCompare || []).map(p => numOf(p.fluctuationsRatio)).filter(v => v != null);
+  if (!peers.length) return null;
+  const peerAvg = peers.reduce((a, b) => a + b, 0) / peers.length;
+  const q = quoteCache[item.symbol];
+  const myChg = q && q.prev ? (q.price - q.prev) / q.prev * 100 : null;
+  if (myChg == null) return null;
+  const rel = myChg - peerAvg;
+  const score = Math.max(0, Math.min(100, Math.round(50 + rel * 10)));
+  return {
+    score,
+    summary: `동종 ${peers.length}개 평균 ${peerAvg >= 0 ? '+' : ''}${peerAvg.toFixed(1)}% 대비 ${rel >= 0 ? '우위 +' : '열위 '}${rel.toFixed(1)}%p (당일 기준)`,
+    reasons: [rel >= 0 ? '✓ 업종 평균 대비 강세 (당일)' : '✗ 업종 평균 대비 약세 (당일)']
+  };
+}
+
+// 가용한 차원만 가중평균
+function compositeScore(parts) {
+  let wsum = 0, acc = 0; const used = [];
+  SCORE_DIMS.forEach(dim => { const p = parts[dim.key]; if (p && p.score != null) { acc += p.score * dim.weight; wsum += dim.weight; used.push(dim.key); } });
+  if (!wsum) return null;
+  return { score: Math.round(acc / wsum), used };
+}
+function scoreGrade(s) {
+  if (s >= 65) return { txt: '매력 우세', cls: 'good', color: '#2ecc71' };
+  if (s >= 45) return { txt: '중립 — 혼재', cls: 'mid', color: '#f1c40f' };
+  return { txt: '주의 우세', cls: 'bad', color: '#e74c3c' };
+}
+
+// ── 메인 종합 투자 환경 인포그래픽 (거시·모멘텀·시장뉴스) ──
+let marketNewsNet = null; // 시장 헤드라인 감성 합산 (renderNews가 채움)
+const MAIN_DIMS = [
+  { key: 'macro',    label: '거시 환경',       icon: '🌐', weight: 0.40 },
+  { key: 'momentum', label: '관심종목 모멘텀', icon: '📈', weight: 0.35 },
+  { key: 'news',     label: '시장 뉴스 분위기',icon: '📰', weight: 0.25 }
+];
+function scoreWatchlistMomentum() {
+  const qs = watchlist.map(w => quoteCache[w.symbol]).filter(q => q && q.price && q.prev);
+  if (!qs.length) return null;
+  const up = qs.filter(q => q.price > q.prev).length;
+  const r1 = qs.filter(q => q.ret1m != null);
+  const posM = r1.filter(q => q.ret1m > 0).length;
+  const score = r1.length
+    ? Math.round((up / qs.length * 0.65 + posM / r1.length * 0.35) * 100)
+    : Math.round(up / qs.length * 100);
+  return { score, summary: `${qs.length}개 중 당일 ${up}개 상승${r1.length ? ` · 1개월 플러스 ${posM}개` : ''}` };
+}
+function scoreMarketNewsVal() {
+  if (marketNewsNet == null) return null;
+  return { score: Math.max(0, Math.min(100, Math.round(50 + marketNewsNet * 4))), summary: `시장 헤드라인 감성 합산 ${marketNewsNet >= 0 ? '+' : ''}${marketNewsNet}` };
+}
+
+function renderMainInfographic() {
+  const el = document.getElementById('main-infographic');
+  if (!el) return;
+  const parts = { macro: scoreMacroVal(), momentum: scoreWatchlistMomentum(), news: scoreMarketNewsVal() };
+  let wsum = 0, acc = 0, used = 0;
+  MAIN_DIMS.forEach(d => { const p = parts[d.key]; if (p) { acc += p.score * d.weight; wsum += d.weight; used++; } });
+  if (!wsum) { el.innerHTML = '<div class="loading">종합 투자 환경을 분석하는 중…</div>'; return; }
+  const score = Math.round(acc / wsum);
+  const g = scoreGrade(score);
+  const verdict = score >= 65 ? '위험 선호 — 우호적 환경' : score >= 45 ? '중립 — 관망 구간' : '위험 회피 — 신중 필요';
+  const R = 54, CIRC = 2 * Math.PI * R;
+  let html = `<div class="info-card"><div class="info-top">
+    <div class="info-gauge">
+      <svg width="124" height="124" viewBox="0 0 124 124">
+        <circle cx="62" cy="62" r="${R}" fill="none" stroke="#2a2e3a" stroke-width="10"/>
+        <circle cx="62" cy="62" r="${R}" fill="none" stroke="${g.color}" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC * (1 - score / 100)}"/>
+      </svg>
+      <div class="g-center"><b class="${g.cls}">${score}</b><span>종합 / 100</span></div>
+    </div>
+    <div class="info-headline">
+      <div class="info-verdict ${g.cls}">🧭 ${verdict}</div>
+      <div class="info-sub">거시 환경·관심종목 모멘텀·시장 뉴스 분위기 <b>${used}개 축</b>을 가중 평균한 <b>오늘의 종합 투자 환경 점수</b>입니다. 개별 종목 평가는 카드를 눌러 '종합' 탭에서 보세요.</div>
+    </div>
+  </div><div class="info-bars">`;
+  MAIN_DIMS.forEach(d => {
+    const p = parts[d.key];
+    html += `<div class="info-bar"><div class="info-bar-head"><span>${d.icon}</span><span>${d.label}</span>`;
+    if (p) {
+      const gg = scoreGrade(p.score);
+      html += `<span class="ib-score ${gg.cls}">${p.score}</span></div><div class="info-bar-track"><div class="info-bar-fill" style="width:${p.score}%;background:${gg.color}"></div></div><div class="info-bar-note">${esc(p.summary)}</div>`;
+    } else {
+      html += `<span class="ib-na">집계 중…</span></div>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div><div class="info-foot"><button class="ai-btn" id="main-ai-btn">${hasClaudeKey() ? '🤖 Claude 시황 코멘트' : '🤖 Claude 코멘트 (AI 설정 필요)'}</button><span class="info-disclaim">규칙 기반 참고 지표이며 투자 권유가 아닙니다. 시장 환경은 수시로 변합니다.</span></div><div id="main-ai-zone"></div></div>`;
+  el.innerHTML = html;
+  document.getElementById('main-ai-btn').onclick = async () => {
+    if (!hasClaudeKey()) { document.getElementById('settings-btn').click(); return; }
+    const btn = document.getElementById('main-ai-btn');
+    btn.disabled = true; btn.textContent = '🤖 분석 중…';
+    const zone = document.getElementById('main-ai-zone');
+    zone.innerHTML = '<div class="ai-box"><div class="ai-head">🤖 Claude 시황 코멘트</div><div class="ai-body" id="main-ai-body">생성 중…</div></div>';
+    try {
+      const txt = await claudeMarketComment(parts, score);
+      document.getElementById('main-ai-body').innerHTML = esc(txt).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      btn.style.display = 'none';
+    } catch (e) {
+      const b = document.getElementById('main-ai-body');
+      if (b) b.innerHTML = '<span class="bad">생성 실패: ' + esc(e.message) + '</span>';
+      btn.disabled = false; btn.textContent = '🤖 다시 시도';
+    }
+  };
+}
+async function claudeMarketComment(parts, score) {
+  const macroDetail = (scoreMacroVal() && scoreMacroVal().reasons || []).join(', ');
+  const lines = MAIN_DIMS.map(d => { const p = parts[d.key]; return `- ${d.label}: ${p ? p.score + '점 — ' + p.summary : '데이터 없음'}`; }).join('\n');
+  const holds = watchlist.map(w => w.name || w.symbol).slice(0, 12).join(', ');
+  const sys = '당신은 한국어로 답하는 신중한 시황 애널리스트입니다. 제공된 지표만 근거로 간결하게 시장 분위기를 설명하며 단정적 예측은 피합니다. 투자 권유가 아닌 참고용입니다.';
+  const user = `오늘의 종합 투자 환경 지표입니다 (각 0~100, 높을수록 우호적).\n\n종합: ${score}/100\n${lines}\n거시 세부: ${macroDetail}\n\n사용자 관심종목: ${holds}\n\n위를 바탕으로 4~6문장으로 오늘 시장 환경을 요약하세요: (1) 전반적 분위기 한 줄, (2) 우호/부담 요인, (3) 관심종목 보유자가 유의할 점. 핵심 단어는 **굵게** 표시하세요.`;
+  return await callClaude(sys, user, 700);
+}
+
+// ───────────────────────── AI 설정 모달 ─────────────────────────
+(() => {
+  const ov = document.getElementById('settings-overlay');
+  const keyInput = document.getElementById('set-key');
+  const modelSel = document.getElementById('set-model');
+  const result = document.getElementById('set-result');
+  // 모델 옵션 채우기
+  Object.entries(CLAUDE_MODELS).forEach(([id, label]) => {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = label;
+    modelSel.appendChild(o);
+  });
+  const open = () => {
+    keyInput.value = getClaudeKey();
+    modelSel.value = getClaudeModel();
+    result.textContent = '';
+    ov.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  const close = () => { ov.classList.remove('open'); document.body.style.overflow = ''; };
+  document.getElementById('settings-btn').onclick = open;
+  document.getElementById('settings-close').onclick = close;
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  document.getElementById('set-save').onclick = () => {
+    localStorage.setItem('anthropicKey', keyInput.value.trim());
+    localStorage.setItem('anthropicModel', modelSel.value);
+    result.innerHTML = '<span class="good">✓ 저장되었습니다.</span> 이제 종합 평가에서 \'🤖 Claude 심층 의견\'을 받을 수 있습니다.';
+    syncAiButtons();
+  };
+  document.getElementById('set-clear').onclick = () => {
+    localStorage.removeItem('anthropicKey');
+    keyInput.value = '';
+    result.innerHTML = '<span class="mid">키가 삭제되었습니다.</span> 규칙 기반 점수는 계속 동작합니다.';
+    syncAiButtons();
+  };
+  document.getElementById('set-test').onclick = async () => {
+    const k = keyInput.value.trim();
+    if (!k) { result.innerHTML = '<span class="bad">먼저 API 키를 입력하세요.</span>'; return; }
+    localStorage.setItem('anthropicKey', k);
+    localStorage.setItem('anthropicModel', modelSel.value);
+    result.innerHTML = '연결 테스트 중…';
+    try {
+      const r = await callClaude('You are a test.', '"OK"라고만 답하세요.', 20);
+      result.innerHTML = '<span class="good">✓ 연결 성공</span> — 응답: ' + esc(r.slice(0, 40));
+      syncAiButtons();
+    } catch (e) {
+      result.innerHTML = '<span class="bad">✗ 연결 실패: ' + esc(e.message) + '</span><br><span style="color:var(--muted);font-size:0.76rem">키가 올바른지, 크레딧이 있는지 확인하세요.</span>';
+    }
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('open')) close(); });
+})();
+// AI 버튼 상태 동기화 (키 유무에 따라 안내 갱신) — 각 기능에서 정의된 갱신 함수 호출
+function syncAiButtons() {
+  document.querySelectorAll('[data-ai-hint]').forEach(el => {
+    el.textContent = hasClaudeKey() ? '🤖 Claude 심층 의견' : '🤖 Claude 의견 (AI 설정 필요)';
+  });
 }
 
 // ───────────────────────── 초기화 ─────────────────────────
