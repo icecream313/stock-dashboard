@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📈 나의 주식 대시보드</title>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #181b23;
+    --border: #2a2e3a;
+    --text: #e8eaf0;
+    --muted: #8a90a3;
+    --accent: #4f8cff;
+    --up: #f04452;    /* 한국식: 상승 = 빨강 */
+    --down: #3182f6;  /* 한국식: 하락 = 파랑 */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 14px 20px 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.25rem; }
+  header .date { color: var(--muted); font-size: 0.85rem; }
+  header .refresh {
+    margin-left: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  header .refresh:hover { border-color: var(--accent); }
+  .section { padding: 0 20px; margin-top: 22px; }
+  .section h2 {
+    font-size: 1rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.04em;
+  }
+  /* 거시 지표 스트립 */
+  .macro-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 10px 20px 2px;
+    scrollbar-width: thin;
+  }
+  .macro-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 128px;
+    flex-shrink: 0;
+  }
+  .macro-chip .label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+  .macro-chip .price { font-size: 1.02rem; font-weight: 700; margin-top: 2px; white-space: nowrap; }
+  .macro-chip .chg { font-size: 0.78rem; white-space: nowrap; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--muted); }
+  /* 관심종목 카드 */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px 10px;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .del {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    color: var(--muted);
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px;
+  }
+  .card .del:hover { color: var(--up); }
+  .card .name { font-size: 0.95rem; font-weight: 600; padding-right: 24px; }
+  .card .sym { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .card .price { font-size: 1.35rem; font-weight: 700; margin-top: 8px; }
+  .card .chg { font-size: 0.85rem; margin-top: 2px; }
+  .card canvas { width: 100%; height: 54px; margin-top: 10px; display: block; }
+  .card .err { color: var(--muted); font-size: 0.8rem; margin-top: 14px; }
+  /* 종목 추가 바 */
+  .add-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .add-bar input, .add-bar select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.92rem;
+  }
+  #symbol-input { flex: 2; min-width: 150px; }
+  #name-input { flex: 1.5; min-width: 130px; }
+  .add-bar button {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .add-bar button:hover { filter: brightness(1.15); }
+  .hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 12px; line-height: 1.5; }
+  /* 차트 */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  #chart-box { height: 440px; position: relative; }
+  .range-btns { display: inline-flex; gap: 4px; margin-left: 10px; }
+  .range-btns button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+  .range-btns button.active { border-color: var(--accent); color: var(--accent); }
+  /* 뉴스 */
+  .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .news-panel { height: 520px; overflow-y: auto; padding: 6px 0; scrollbar-width: thin; }
+  .news-item {
+    display: block;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .news-item:hover { background: rgba(79,140,255,0.07); }
+  .news-item .title { font-size: 0.88rem; line-height: 1.45; }
+  .news-item .meta { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+  .loading { color: var(--muted); font-size: 0.85rem; padding: 18px; }
+  @media (max-width: 800px) {
+    .news-grid { grid-template-columns: 1fr; }
+    .news-panel { height: 400px; }
+    #chart-box { height: 320px; }
+    .section { padding: 0 12px; }
+    header { padding: 12px 12px 4px; }
+    .macro-strip { padding: 10px 12px 2px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📈 나의 주식 대시보드</h1>
+  <span class="date" id="today"></span>
+  <button class="refresh" id="refresh-btn">🔄 새로고침 <span id="updated-at"></span></button>
+</header>
+
+<!-- ① 거시 지표 -->
+<div class="macro-strip" id="macro-strip"></div>
+
+<!-- ② 관심종목 -->
+<div class="section">
+  <h2>⭐ 관심종목</h2>
+  <div class="add-bar">
+    <select id="exchange">
+      <option value="auto">자동 판별</option>
+      <option value="KS">코스피 (.KS)</option>
+      <option value="KQ">코스닥 (.KQ)</option>
+      <option value="US">미국</option>
+    </select>
+    <input id="symbol-input" type="text" placeholder="티커 — 예: 005930, NVDA" />
+    <input id="name-input" type="text" placeholder="표시 이름(선택) — 예: 삼성전자" />
+    <button id="add-btn">＋ 추가</button>
+  </div>
+  <div class="hint">
+    국내주식은 6자리 종목코드(삼성전자 005930), 미국주식은 티커(NVDA)를 입력하세요.
+    자동 판별: 숫자 6자리 → 코스피, 영문 → 미국. 코스닥 종목은 "코스닥"을 직접 선택하세요.
+    표시 이름을 입력하면 종목 뉴스 검색에도 사용됩니다. 카드를 클릭하면 아래 차트와 종목 뉴스가 바뀝니다.
+  </div>
+  <div class="cards" id="watchlist"></div>
+</div>
+
+<!-- ③ 차트 -->
+<div class="section">
+  <h2>📊 차트 — <span id="chart-symbol-label"></span>
+    <span class="range-btns" id="range-btns">
+      <button data-range="3mo">3개월</button>
+      <button data-range="6mo" class="active">6개월</button>
+      <button data-range="1y">1년</button>
+      <button data-range="5y">5년</button>
+    </span>
+  </h2>
+  <div class="panel" id="chart-box"></div>
+</div>
+
+<!-- ④ 뉴스 -->
+<div class="section">
+  <h2>📰 뉴스</h2>
+  <div class="news-grid">
+    <div>
+      <h2 style="font-size:0.85rem;">시장 전체 (거시)</h2>
+      <div class="panel news-panel" id="market-news"><div class="loading">불러오는 중…</div></div>
+    </div>
+    <div>
+      <h2 style="font-size:0.85rem;">선택 종목 — <span id="news-symbol-label"></span></h2>
+      <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ───────────────────────── 설정 ─────────────────────────
+const STORAGE_KEY = 'my-watchlist-v2';
+const DEFAULT_LIST = [
+  { symbol: '005930.KS', name: '삼성전자' },
+  { symbol: '000660.KS', name: 'SK하이닉스' },
+  { symbol: 'NVDA',      name: '엔비디아' }
+];
+const MACRO = [
+  { symbol: '^KS11', label: '코스피',      fmt: 'num'  },
+  { symbol: '^GSPC', label: 'S&P 500',     fmt: 'num'  },
+  { symbol: '^IXIC', label: '나스닥',      fmt: 'num'  },
+  { symbol: 'KRW=X', label: '원/달러',     fmt: 'krw'  },
+  { symbol: '^TNX',  label: '미국채 10년', fmt: 'pct'  },
+  { symbol: 'CL=F',  label: 'WTI 유가',    fmt: 'usd'  },
+  { symbol: 'GC=F',  label: '금',          fmt: 'usd'  },
+  { symbol: '^VIX',  label: 'VIX',         fmt: 'num'  }
+];
+// CORS 프록시 폴백 체인 (정적 페이지에서 외부 API 호출용)
+const PROXIES = [
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+];
+const CACHE_TTL = 3 * 60 * 1000; // 시세 캐시 3분
+
+let watchlist = loadList();
+let selected = watchlist[0] || DEFAULT_LIST[0];
+let chartRange = '6mo';
+let mainChart = null;
+
+// ───────────────────────── 유틸 ─────────────────────────
+function loadList() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (Array.isArray(saved) && saved.length && saved[0].symbol) return saved;
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_LIST));
+}
+function saveList() { localStorage.setItem(STORAGE_KEY, JSON.stringify(watchlist)); }
+
+async function fetchViaProxy(url, asText) {
+  let lastErr;
+  for (const wrap of PROXIES) {
+    try {
+      const res = await fetch(wrap(url), { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return asText ? await res.text() : await res.json();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+// Yahoo Finance 차트 API (시세 + 시계열, 인증 불필요)
+async function fetchChart(symbol, range, interval, noCache) {
+  const cacheKey = `yf:${symbol}:${range}:${interval}`;
+  if (!noCache) {
+    try {
+      const c = JSON.parse(localStorage.getItem(cacheKey));
+      if (c && Date.now() - c.t < CACHE_TTL) return c.d;
+    } catch (e) {}
+  }
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+  const json = await fetchViaProxy(url, false);
+  const result = json?.chart?.result?.[0];
+  if (!result) throw new Error('no data: ' + symbol);
+  try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: result })); } catch (e) {}
+  return result;
+}
+
+// Yahoo spark API — 여러 종목 시세를 한 번에 (프록시 요청 폭주 방지)
+// 응답: { "심볼": { timestamp[], close[], previousClose, ... }, ... }
+async function fetchSpark(symbols, range, interval, noCache) {
+  const cacheKey = `yfs:${symbols.join('|')}:${range}`;
+  if (!noCache) {
+    try {
+      const c = JSON.parse(localStorage.getItem(cacheKey));
+      if (c && Date.now() - c.t < CACHE_TTL) return c.d;
+    } catch (e) {}
+  }
+  // 심볼의 ^, = 등은 인코딩하되 구분자 콤마는 그대로 둬야 한다
+  const symParam = symbols.map(encodeURIComponent).join(',');
+  const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symParam}&range=${range}&interval=${interval}`;
+  const json = await fetchViaProxy(url, false);
+  if (!json || typeof json !== 'object') throw new Error('spark: no data');
+  try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: json })); } catch (e) {}
+  return json;
+}
+
+function isKorean(symbol) { return /\.(KS|KQ)$/.test(symbol); }
+
+function lastValid(arr) {
+  for (let i = (arr || []).length - 1; i >= 0; i--) if (arr[i] != null) return arr[i];
+  return null;
+}
+
+function fmtPrice(v, symbol, fmt) {
+  if (v == null) return '—';
+  if (fmt === 'pct') return v.toFixed(2) + '%';
+  if (fmt === 'krw' || isKorean(symbol)) return '₩' + Math.round(v).toLocaleString('ko-KR');
+  if (fmt === 'usd' || (!fmt && !isKorean(symbol))) return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+}
+
+function chgInfo(price, prevClose) {
+  if (price == null || !prevClose) return { cls: 'flat', text: '—' };
+  const diff = price - prevClose;
+  const pct = (diff / prevClose) * 100;
+  const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const sign = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
+  return { cls, text: `${sign} ${Math.abs(diff).toLocaleString('en-US', { maximumFractionDigits: 2 })} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)` };
+}
+
+function relTime(d) {
+  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (m < 1) return '방금';
+  if (m < 60) return m + '분 전';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + '시간 전';
+  return Math.floor(h / 24) + '일 전';
+}
+
+// ───────────────────────── ① 거시 지표 ─────────────────────────
+async function renderMacro(noCache) {
+  const strip = document.getElementById('macro-strip');
+  if (!strip.children.length) {
+    MACRO.forEach(m => {
+      const chip = document.createElement('div');
+      chip.className = 'macro-chip';
+      chip.id = 'macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, '');
+      chip.innerHTML = `<div class="label">${m.label}</div><div class="price">…</div><div class="chg flat">—</div>`;
+      strip.appendChild(chip);
+    });
+  }
+  try {
+    const data = await fetchSpark(MACRO.map(m => m.symbol), '1d', '15m', noCache);
+    MACRO.forEach(m => {
+      const chip = document.getElementById('macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, ''));
+      const d = data[m.symbol];
+      if (!d) { chip.querySelector('.price').textContent = '—'; return; }
+      const price = lastValid(d.close);
+      const c = chgInfo(price, d.previousClose);
+      chip.querySelector('.price').textContent = m.fmt === 'pct' ? price.toFixed(2) + '%' : fmtPrice(price, m.symbol, m.fmt);
+      const chg = chip.querySelector('.chg');
+      chg.className = 'chg ' + c.cls;
+      chg.textContent = c.text;
+    });
+  } catch (e) {
+    document.querySelectorAll('.macro-chip .price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
+  }
+}
+
+// ───────────────────────── ② 관심종목 카드 ─────────────────────────
+function renderWatchlist(noCache) {
+  const grid = document.getElementById('watchlist');
+  grid.innerHTML = '';
+  watchlist.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card' + (item.symbol === selected.symbol ? ' selected' : '');
+    card.innerHTML = `
+      <button class="del" title="삭제">✕</button>
+      <div class="name">${item.name || item.symbol}</div>
+      <div class="sym">${item.symbol}</div>
+      <div class="price">…</div>
+      <div class="chg flat">—</div>
+      <canvas></canvas>`;
+    card.querySelector('.del').onclick = e => {
+      e.stopPropagation();
+      if (!confirm(`'${item.name || item.symbol}' 종목을 삭제할까요?`)) return;
+      watchlist = watchlist.filter(w => w.symbol !== item.symbol);
+      saveList();
+      if (selected.symbol === item.symbol && watchlist.length) selectStock(watchlist[0]);
+      renderWatchlist();
+    };
+    card.onclick = () => selectStock(item);
+    card.dataset.symbol = item.symbol;
+    grid.appendChild(card);
+  });
+  fillCards(noCache);
+}
+
+// 모든 카드를 spark 1회 호출로 채운다
+async function fillCards(noCache) {
+  if (!watchlist.length) return;
+  let data = null;
+  try {
+    data = await fetchSpark(watchlist.map(w => w.symbol), '3mo', '1d', noCache);
+  } catch (e) {}
+  watchlist.forEach(item => {
+    const card = document.querySelector(`.card[data-symbol="${CSS.escape(item.symbol)}"]`);
+    if (!card) return;
+    const d = data && data[item.symbol];
+    const closes = d ? (d.close || []).filter(v => v != null) : [];
+    if (!closes.length) {
+      card.querySelector('.price').textContent = '—';
+      const chg = card.querySelector('.chg');
+      chg.className = 'err';
+      chg.textContent = '데이터를 불러오지 못했습니다';
+      return;
+    }
+    const price = closes[closes.length - 1];
+    const prev = closes.length > 1 ? closes[closes.length - 2] : null; // 전일 종가
+    const c = chgInfo(price, prev);
+    card.querySelector('.price').textContent = fmtPrice(price, item.symbol);
+    const chg = card.querySelector('.chg');
+    chg.className = 'chg ' + c.cls;
+    chg.textContent = c.text;
+    if (!item.name) fillName(item, card); // 이름이 없으면 비동기로 종목명 조회
+    // 스파크라인 색은 3개월 추세 기준
+    const trend = closes[closes.length - 1] > closes[0] ? 'up'
+      : closes[closes.length - 1] < closes[0] ? 'down' : 'flat';
+    drawSparkline(card.querySelector('canvas'), closes, trend);
+  });
+}
+
+async function fillName(item, card) {
+  try {
+    const r = await fetchChart(item.symbol, '1d', '15m');
+    item.name = r.meta.shortName || r.meta.longName || item.symbol;
+    card.querySelector('.name').textContent = item.name;
+    saveList();
+    if (selected.symbol === item.symbol) renderSymbolNews();
+  } catch (e) {}
+}
+
+function drawSparkline(canvas, data, cls) {
+  if (!data.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const min = Math.min(...data), max = Math.max(...data), span = max - min || 1;
+  const color = cls === 'up' ? '#f04452' : cls === 'down' ? '#3182f6' : '#8a90a3';
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 4 - ((v - min) / span) * (h - 8);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '33');
+  grad.addColorStop(1, color + '00');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// ───────────────────────── ③ 차트 ─────────────────────────
+async function renderChart() {
+  const box = document.getElementById('chart-box');
+  document.getElementById('chart-symbol-label').textContent = (selected.name || '') + ' (' + selected.symbol + ')';
+  box.innerHTML = '<div class="loading">차트 불러오는 중…</div>';
+  try {
+    const r = await fetchChart(selected.symbol, chartRange, '1d');
+    const ts = r.timestamp || [];
+    const q = r.indicators.quote[0];
+    const candles = ts.map((t, i) => ({
+      time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i]
+    })).filter(c => c.close != null);
+    box.innerHTML = '';
+    mainChart = LightweightCharts.createChart(box, {
+      autoSize: true,
+      layout: { background: { color: 'transparent' }, textColor: '#8a90a3' },
+      grid: { vertLines: { color: '#1f2330' }, horzLines: { color: '#1f2330' } },
+      timeScale: { borderColor: '#2a2e3a' },
+      rightPriceScale: { borderColor: '#2a2e3a' },
+      localization: {
+        priceFormatter: v => isKorean(selected.symbol)
+          ? Math.round(v).toLocaleString('ko-KR')
+          : v.toFixed(2)
+      }
+    });
+    const series = mainChart.addCandlestickSeries({
+      upColor: '#f04452', downColor: '#3182f6',
+      wickUpColor: '#f04452', wickDownColor: '#3182f6',
+      borderVisible: false
+    });
+    series.setData(candles);
+    mainChart.timeScale().fitContent();
+  } catch (e) {
+    box.innerHTML = '<div class="loading">차트 데이터를 불러오지 못했습니다. 새로고침해 보세요.</div>';
+  }
+}
+
+document.getElementById('range-btns').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  chartRange = btn.dataset.range;
+  document.querySelectorAll('#range-btns button').forEach(b => b.classList.toggle('active', b === btn));
+  renderChart();
+});
+
+// ───────────────────────── ④ 뉴스 (구글뉴스 RSS) ─────────────────────────
+async function renderNews(el, rssUrl, attempt) {
+  el.innerHTML = '<div class="loading">불러오는 중…</div>';
+  try {
+    const xml = await fetchViaProxy(rssUrl, true);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const items = [...doc.querySelectorAll('item')].slice(0, 25);
+    if (!items.length) throw new Error('empty');
+    el.innerHTML = '';
+    items.forEach(it => {
+      const title = it.querySelector('title')?.textContent || '';
+      const link = it.querySelector('link')?.textContent || '#';
+      const pub = new Date(it.querySelector('pubDate')?.textContent || Date.now());
+      const source = it.querySelector('source')?.textContent || '';
+      const a = document.createElement('a');
+      a.className = 'news-item';
+      a.href = link;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.innerHTML = `<div class="title"></div><div class="meta"></div>`;
+      a.querySelector('.title').textContent = title;
+      a.querySelector('.meta').textContent = `${source} · ${relTime(pub)}`;
+      el.appendChild(a);
+    });
+  } catch (e) {
+    if (!attempt) {
+      // 일시적 프록시 차단(요청 폭주) 대비 한 번 재시도
+      el.innerHTML = '<div class="loading">잠시 후 다시 시도합니다…</div>';
+      setTimeout(() => renderNews(el, rssUrl, 1), 3000);
+    } else {
+      el.innerHTML = '<div class="loading">뉴스를 불러오지 못했습니다. 새로고침해 보세요.</div>';
+    }
+  }
+}
+
+function gnewsSearch(q) {
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+}
+
+function renderMarketNews() {
+  renderNews(document.getElementById('market-news'),
+    gnewsSearch('증시 OR 금리 OR 환율 when:1d'));
+}
+
+function renderSymbolNews() {
+  document.getElementById('news-symbol-label').textContent = selected.name || selected.symbol;
+  const q = (selected.name || selected.symbol) + ' 주가 when:7d';
+  renderNews(document.getElementById('symbol-news'), gnewsSearch(q));
+}
+
+// ───────────────────────── 종목 선택/추가 ─────────────────────────
+function selectStock(item) {
+  selected = item;
+  document.querySelectorAll('.card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.sym').textContent === item.symbol);
+  });
+  renderChart();
+  renderSymbolNews();
+}
+
+document.getElementById('add-btn').onclick = addStock;
+document.getElementById('symbol-input').addEventListener('keydown', e => { if (e.key === 'Enter') addStock(); });
+document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') addStock(); });
+
+function addStock() {
+  const symInput = document.getElementById('symbol-input');
+  const nameInput = document.getElementById('name-input');
+  const ex = document.getElementById('exchange').value;
+  let raw = symInput.value.trim().toUpperCase();
+  if (!raw) return;
+
+  let symbol;
+  if (raw.includes('.')) symbol = raw;
+  else if (ex === 'KS' || ex === 'KQ') symbol = raw + '.' + ex;
+  else if (ex === 'US') symbol = raw;
+  else symbol = /^\d{6}$/.test(raw) ? raw + '.KS' : raw;
+
+  if (watchlist.some(w => w.symbol === symbol)) {
+    alert('이미 등록된 종목입니다: ' + symbol);
+    return;
+  }
+  watchlist.push({ symbol, name: nameInput.value.trim() || null });
+  saveList();
+  symInput.value = '';
+  nameInput.value = '';
+  renderWatchlist();
+}
+
+// ───────────────────────── 초기화 ─────────────────────────
+document.getElementById('today').textContent =
+  new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+document.getElementById('refresh-btn').onclick = () => {
+  document.getElementById('updated-at').textContent = '';
+  renderMacro(true);
+  renderWatchlist(true);
+  renderChart();
+  renderMarketNews();
+  renderSymbolNews();
+  markUpdated();
+};
+function markUpdated() {
+  document.getElementById('updated-at').textContent =
+    new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+renderMacro();
+renderWatchlist();
+renderChart();
+// 뉴스는 시세 요청과 겹치지 않게 약간 늦게 시작 (프록시 동시요청 제한 회피)
+setTimeout(() => { renderMarketNews(); renderSymbolNews(); }, 700);
+markUpdated();
+</script>
+
+</body>
+</html>
