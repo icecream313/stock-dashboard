@@ -14,21 +14,34 @@
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root {
-    --bg: #0f1117;
-    --card: #181b23;
-    --border: #2a2e3a;
-    --text: #e8eaf0;
-    --muted: #8a90a3;
-    --accent: #4f8cff;
-    --up: #f04452;    /* 한국식: 상승 = 빨강 */
-    --down: #3182f6;  /* 한국식: 하락 = 파랑 */
+    --bg: #080a10;
+    --bg-soft: #0d1018;
+    --card: #14171f;        /* 타일 바닥 */
+    --card-2: #1a1e29;      /* 타일 상단(그라데이션) */
+    --border: #232838;
+    --border-soft: #1b2030;
+    --text: #eef0f6;
+    --muted: #888fa6;
+    --accent: #5b95ff;
+    --accent-2: #b08cff;
+    --up: #f0454f;    /* 한국식: 상승 = 빨강 */
+    --down: #3a86ff;  /* 한국식: 하락 = 파랑 */
+    --radius: 16px;
+    --radius-sm: 12px;
+    --shadow: 0 6px 22px rgba(0,0,0,0.30);
+    --shadow-soft: 0 2px 10px rgba(0,0,0,0.20);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: var(--bg);
+    background:
+      radial-gradient(1100px 560px at 78% -8%, rgba(91,149,255,0.07), transparent 58%),
+      radial-gradient(880px 500px at -5% 2%, rgba(176,140,255,0.06), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
     padding-bottom: 40px;
+    -webkit-font-smoothing: antialiased;
   }
   header {
     padding: 14px 20px 6px;
@@ -339,12 +352,14 @@
   }
   /* 기술 분석 탭 */
   .tech-chart-box { height: 380px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
-  .tech-range { display: flex; gap: 4px; margin-bottom: 10px; }
-  .tech-range button {
+  .tech-range, .tech-interval { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tech-interval { margin-bottom: 7px; }
+  .tech-range button, .tech-interval button {
     background: var(--bg); border: 1px solid var(--border); color: var(--muted);
     border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.78rem;
   }
-  .tech-range button.active { border-color: var(--accent); color: var(--accent); }
+  .tech-range button.active, .tech-interval button.active { border-color: var(--accent); color: var(--accent); }
+  .tech-interval button.active { background: rgba(79,140,255,0.12); font-weight: 700; }
   .ma-legend { display: flex; gap: 12px; font-size: 0.72rem; color: var(--muted); margin-bottom: 16px; flex-wrap: wrap; }
   .signal-summary {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
@@ -411,6 +426,79 @@
     background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
     padding: 13px 15px; font-size: 0.86rem; line-height: 1.7; margin: 4px 0 14px;
   }
+  /* ── 점수 근거 상세 패널 (info-bar·sum-dim 공용) ── */
+  .info-bar.expandable, .sum-dim.expandable { cursor: pointer; transition: border-color 0.15s; }
+  .info-bar.expandable:hover, .sum-dim.expandable:hover { border-color: var(--accent); }
+  .sd-caret { font-size: 0.66rem; color: var(--muted); margin-left: 6px; transition: transform 0.15s; display: inline-block; }
+  .expanded .sd-caret { transform: rotate(90deg); }
+  .ib-score, .sum-dim-score { display: inline-flex; align-items: center; }
+  .score-detail {
+    margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--border);
+    animation: sdIn 0.18s ease;
+  }
+  @keyframes sdIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .score-detail .sd-basis { font-size: 0.74rem; color: var(--muted); line-height: 1.6; margin-bottom: 11px; }
+  .sd-scope {
+    display: inline-block; font-size: 0.62rem; font-weight: 800; border-radius: 5px;
+    padding: 1px 7px; margin-right: 7px; vertical-align: 1px;
+  }
+  .sd-scope.macro { background: rgba(106,166,255,0.16); color: #6aa6ff; }
+  .sd-scope.micro { background: rgba(95,208,160,0.16); color: #5fd0a0; }
+  .score-metric { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .score-metric:last-child { border-bottom: none; padding-bottom: 0; }
+  .sm-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .sm-dot.good { background: #2ecc71; } .sm-dot.bad { background: #e74c3c; } .sm-dot.mid { background: #f1c40f; }
+  .sm-body { flex: 1; min-width: 0; }
+  .sm-top { display: flex; align-items: baseline; gap: 8px; }
+  .sm-label { font-size: 0.8rem; font-weight: 700; }
+  .sm-value { font-size: 0.78rem; font-weight: 700; margin-left: auto; white-space: nowrap; }
+  .sm-value.good { color: #2ecc71; } .sm-value.bad { color: #e74c3c; } .sm-value.mid { color: #f1c40f; }
+  .sm-rule { font-size: 0.7rem; margin-top: 3px; line-height: 1.5; }
+  .sm-rule b.good { color: #2ecc71; } .sm-rule b.bad { color: #e74c3c; } .sm-rule b.mid { color: #f1c40f; }
+  .sm-why { font-size: 0.7rem; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .sd-asof { font-size: 0.68rem; color: var(--muted); margin-top: 10px; }
+  /* ── 기준 시각 배지 (블록 헤더 공용) ── */
+  .block-asof { margin-left: auto; font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
+  .block-asof:empty { display: none; }
+  .block-asof::before { content: '🕒 '; }
+  /* ── 오늘의 핵심 Top3 ── */
+  #top-insights-section { margin-top: 16px; }
+  .ti-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 11px; }
+  .ti-title { font-size: 1.08rem; font-weight: 800; letter-spacing: 0.02em; }
+  .ti-sub { font-size: 0.74rem; color: var(--muted); }
+  .ti-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 12px; }
+  .ti-card {
+    background: linear-gradient(135deg, var(--card), rgba(79,140,255,0.05));
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
+  }
+  .ti-card.rank1 { border-color: rgba(240,68,82,0.45); background: linear-gradient(135deg, var(--card), rgba(240,68,82,0.06)); }
+  .ti-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .ti-rank { font-size: 0.64rem; font-weight: 800; color: var(--muted); letter-spacing: 0.08em; }
+  .ti-cat { font-size: 0.62rem; font-weight: 800; border-radius: 5px; padding: 1px 7px; }
+  .ti-cat.macro { background: rgba(106,166,255,0.16); color: #6aa6ff; }
+  .ti-cat.news { background: rgba(241,196,15,0.16); color: #f1c40f; }
+  .ti-cat.sector { background: rgba(95,208,160,0.16); color: #5fd0a0; }
+  .ti-card-title { font-size: 0.98rem; font-weight: 800; line-height: 1.35; display: flex; gap: 8px; align-items: flex-start; }
+  .ti-emoji { font-size: 1.2rem; flex-shrink: 0; }
+  .ti-metric { font-size: 0.85rem; font-weight: 700; margin: 8px 0 7px; }
+  .ti-why { font-size: 0.76rem; color: var(--muted); line-height: 1.6; }
+  /* ── 떠오르는 업종 ── */
+  .ts-toggle { display: flex; gap: 4px; }
+  .ts-toggle button { background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 4px 11px; font-size: 0.76rem; cursor: pointer; }
+  .ts-toggle button.active { border-color: var(--accent); color: var(--accent); background: rgba(79,140,255,0.1); }
+  .ts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(282px, 1fr)); gap: 12px; }
+  .ts-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; }
+  .ts-card-head { display: flex; align-items: center; gap: 9px; }
+  .ts-rank-badge { font-size: 0.74rem; font-weight: 800; min-width: 23px; height: 23px; padding: 0 5px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--border); }
+  .ts-card.hot .ts-rank-badge { background: rgba(240,68,82,0.16); border-color: rgba(240,68,82,0.4); color: #ff7a6b; }
+  .ts-name { font-size: 0.95rem; font-weight: 800; }
+  .ts-chg { margin-left: auto; font-size: 0.98rem; font-weight: 800; }
+  .ts-breadth { font-size: 0.71rem; color: var(--muted); margin: 9px 0 0; }
+  .ts-breadth-bar { height: 5px; border-radius: 3px; background: var(--down); overflow: hidden; margin-top: 5px; }
+  .ts-breadth-fill { height: 100%; background: var(--up); border-radius: 3px; }
+  .ts-leaders { font-size: 0.74rem; line-height: 1.6; margin-top: 9px; }
+  .ts-leaders .ts-leader { display: inline-block; margin-right: 11px; white-space: nowrap; }
+  .ts-why { font-size: 0.73rem; color: var(--muted); margin-top: 9px; line-height: 1.55; border-top: 1px dashed var(--border); padding-top: 8px; }
   /* AI 설정 모달 */
   .set-field { margin-bottom: 18px; }
   .set-field label { display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 7px; }
@@ -515,6 +603,37 @@
     .detail-tabs { top: 72px; }
     .detail-tabs button { font-size: 0.82rem; padding: 11px 2px; }
   }
+  /* ════════════════ 벤또(Bento) 타일 디자인 — 3단계 ════════════════ */
+  /* 타일 공통 질감: 상단 하이라이트 그라데이션 + 부드러운 그림자 + 큰 반경 */
+  .card, .ts-card, .pf-bar {
+    background: linear-gradient(158deg, var(--card-2), var(--card));
+    box-shadow: var(--shadow-soft);
+    border-radius: var(--radius-sm);
+  }
+  .card { transition: border-color 0.16s, transform 0.16s, box-shadow 0.16s; }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .macro-chip { background: linear-gradient(158deg, var(--card-2), var(--card)); border-radius: var(--radius-sm); }
+  .info-card { box-shadow: var(--shadow); border-radius: var(--radius); }
+  .news-panel { border-radius: var(--radius-sm); }
+  /* 헤더 고급화 — 그라데이션 타이틀 */
+  header { padding-top: 18px; }
+  header h1 {
+    letter-spacing: -0.01em;
+    background: linear-gradient(92deg, #ffffff, #b9c6e6);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header .refresh { background: linear-gradient(158deg, var(--card-2), var(--card)); box-shadow: var(--shadow-soft); }
+  .perspective-banner { margin-top: 34px; }
+  /* ── Top3를 가장 큰 비중으로 (벤또 히어로) ── */
+  .ti-card { box-shadow: var(--shadow-soft); border-radius: var(--radius); }
+  @media (min-width: 760px) {
+    .ti-grid { grid-template-columns: 1.4fr 1fr; grid-auto-rows: 1fr; align-items: stretch; }
+    .ti-card.rank1 { grid-row: 1 / span 2; grid-column: 1; display: flex; flex-direction: column; padding: 20px 22px; }
+    .ti-card.rank1 .ti-card-title { font-size: 1.28rem; }
+    .ti-card.rank1 .ti-emoji { font-size: 1.8rem; }
+    .ti-card.rank1 .ti-metric { font-size: 0.98rem; margin: 12px 0 9px; }
+    .ti-card.rank1 .ti-why { font-size: 0.84rem; margin-top: auto; }
+  }
 </style>
 </head>
 <body>
@@ -526,11 +645,21 @@
   <button class="refresh" id="refresh-btn" style="margin-left:0">🔄 새로고침 <span id="updated-at"></span></button>
 </header>
 
+<!-- ════════ 🔝 오늘의 핵심 Top3 ════════ -->
+<div class="section" id="top-insights-section">
+  <div class="ti-head">
+    <span class="ti-title">🔝 오늘 꼭 봐야 할 핵심 3가지</span>
+    <span class="ti-sub">지수·환율·금리·뉴스·업종에서 영향이 큰 순서로 자동 선별</span>
+    <span class="block-asof" id="ti-asof"></span>
+  </div>
+  <div id="top-insights"><div class="loading">오늘의 핵심 이슈를 분석하는 중…</div></div>
+</div>
+
 <!-- ════════ 🌐 거시 관점 — 시장 전체 ════════ -->
 <div class="perspective-banner macro">
   <span class="pb-icon">🌐</span>
   <span class="pb-title">거시 — 시장 전체</span>
-  <span class="pb-sub">지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다</span>
+  <span class="pb-sub" id="macro-pb-sub">지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다</span>
 </div>
 
 <!-- 거시 지표 칩 (클릭 → 지수/지표 상세) -->
@@ -546,8 +675,22 @@
   <div class="wl-head">
     <h2>📰 시장 뉴스</h2>
     <button id="news-filter-toggle" title="연합뉴스·한경·머니투데이 / Reuters·Bloomberg·WSJ 등 신뢰도 높은 매체만 표시"></button>
+    <span class="block-asof" id="market-news-asof"></span>
   </div>
   <div class="panel news-panel" id="market-news"><div class="loading">불러오는 중…</div></div>
+</div>
+
+<!-- 떠오르는 업종 (거시) -->
+<div class="section" id="trending-section">
+  <div class="wl-head">
+    <h2>🔥 떠오르는 업종</h2>
+    <div class="ts-toggle" id="ts-toggle">
+      <button data-mk="kr" class="active">🇰🇷 한국</button>
+      <button data-mk="us">🇺🇸 미국 섹터</button>
+    </div>
+    <span class="block-asof" id="ts-asof"></span>
+  </div>
+  <div id="trending-sectors"><div class="loading">업종별 자금 흐름을 분석하는 중…</div></div>
 </div>
 
 <!-- ════════ 🎯 미시 관점 — 내 종목 ════════ -->
@@ -893,7 +1036,10 @@ async function renderMacro(noCache) {
       chg.className = 'chg ' + c.cls;
       chg.textContent = c.text;
     });
+    const sub = document.getElementById('macro-pb-sub');
+    if (sub) sub.innerHTML = '지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다 · <span style="color:var(--accent)">🕒 기준 ' + fmtClock(Date.now()) + '</span>';
     if (typeof renderMainInfographic === 'function') renderMainInfographic();
+    if (typeof renderTopInsights === 'function') renderTopInsights();
   } catch (e) {
     document.querySelectorAll('.macro-chip .price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
   }
@@ -1312,7 +1458,12 @@ async function loadNews(el, target, attempt) {
       a.querySelector('.meta').textContent = `${x.source} · ${relTime(x.pub)}`;
       el.appendChild(a);
     });
-    if (el.id === 'market-news') { marketNewsNet = net; if (typeof renderMainInfographic === 'function') renderMainInfographic(); }
+    if (el.id === 'market-news') {
+      marketNewsNet = net; marketNewsItems = scored;
+      stampAsof('market-news-asof');
+      if (typeof renderMainInfographic === 'function') renderMainInfographic();
+      if (typeof renderTopInsights === 'function') renderTopInsights();
+    }
   } catch (e) {
     if (!attempt) {
       el.innerHTML = '<div class="loading">잠시 후 다시 시도합니다…</div>';
@@ -2083,7 +2234,12 @@ function buildTechUI(el) {
   const icon = { buy: '▲', neutral: '─', sell: '▼' };
   const iconCls = { buy: 'good', neutral: 'mid', sell: 'bad' };
   const badge = { buy: '매수 신호', neutral: '중립', sell: '매도 신호' };
+  if (!techState.interval) techState.interval = '1d';
   let html = renderOverheatBlock(techState.bars, techState.item) + `
+    <div class="tech-interval" id="tech-interval">
+      <button data-iv="1d"${techState.interval === '1d' ? ' class="active"' : ''}>일봉</button>
+      <button data-iv="1wk"${techState.interval === '1wk' ? ' class="active"' : ''}>주봉</button>
+    </div>
     <div class="tech-range" id="tech-range">
       <button data-r="3mo">3개월</button>
       <button data-r="6mo" class="active">6개월</button>
@@ -2091,7 +2247,7 @@ function buildTechUI(el) {
       <button data-r="3y">3년</button>
     </div>
     <div class="tech-chart-box" id="tech-chart"></div>
-    <div class="ma-legend">
+    <div class="ma-legend" id="ma-legend">
       <span style="color:#f1c40f">━ 5일선</span>
       <span style="color:#4f8cff">━ 20일선</span>
       <span style="color:#b08cff">━ 60일선</span>
@@ -2128,7 +2284,26 @@ function buildTechUI(el) {
     el.querySelectorAll('#tech-range button').forEach(x => x.classList.toggle('active', x === b));
     drawTechChart();
   });
+  el.querySelector('#tech-interval').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    techState.interval = b.dataset.iv;
+    el.querySelectorAll('#tech-interval button').forEach(x => x.classList.toggle('active', x === b));
+    drawTechChart();
+  });
   drawTechChart();
+}
+
+// 일봉 bars → 주봉 집계 (월~일을 한 주로 묶음. open=첫날, high/low=주중 극값, close=마지막날, volume=합)
+function toWeekly(bars) {
+  const map = new Map();
+  bars.forEach(b => {
+    const wk = Math.floor((Math.floor(b.time / 86400) + 3) / 7); // 1970-01-01=목요일 → 월요일 시작 주
+    let w = map.get(wk);
+    if (!w) { w = { time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume || 0 }; map.set(wk, w); }
+    else { w.high = Math.max(w.high, b.high); w.low = Math.min(w.low, b.low); w.close = b.close; w.volume += b.volume || 0; }
+  });
+  return [...map.values()].sort((a, b) => a.time - b.time);
 }
 
 function drawTechChart() {
@@ -2136,11 +2311,19 @@ function drawTechChart() {
   const box = document.getElementById('tech-chart');
   if (!box || !box.offsetParent) return; // 탭이 숨겨진 상태면 보일 때 다시 그림
   box.innerHTML = '';
-  const { bars, item, range } = techState;
-  const n = range === '3mo' ? 63 : range === '6mo' ? 126 : range === '1y' ? 252 : range === '3y' ? 756 : bars.length;
+  const { item, range } = techState;
+  const weekly = techState.interval === '1wk';
+  const bars = weekly ? toWeekly(techState.bars) : techState.bars;
+  const nDaily = range === '3mo' ? 63 : range === '6mo' ? 126 : range === '1y' ? 252 : range === '3y' ? 756 : techState.bars.length;
+  const n = weekly ? Math.ceil(nDaily / 5) : nDaily;
   const start = Math.max(0, bars.length - n);
   const closes = bars.map(b => b.close);
   const maArr = p => closes.map((_, i) => i + 1 >= p ? closes.slice(i + 1 - p, i + 1).reduce((a, b) => a + b, 0) / p : null);
+  const maSet = weekly
+    ? [[13, '#f1c40f', '13주'], [26, '#4f8cff', '26주'], [52, '#b08cff', '52주']]
+    : [[5, '#f1c40f', '5일'], [20, '#4f8cff', '20일'], [60, '#b08cff', '60일']];
+  const leg = document.getElementById('ma-legend');
+  if (leg) leg.innerHTML = maSet.map(([, color, lbl]) => `<span style="color:${color}">━ ${lbl}선</span>`).join('') + '<span>하단 막대: 거래량</span>';
   const chart = LightweightCharts.createChart(box, {
     autoSize: true,
     layout: { background: { color: 'transparent' }, textColor: '#8a90a3' },
@@ -2164,9 +2347,10 @@ function drawTechChart() {
     time: b.time, value: b.volume,
     color: b.close >= b.open ? 'rgba(240,68,82,0.4)' : 'rgba(49,130,246,0.4)'
   })));
-  [[maArr(5), '#f1c40f'], [maArr(20), '#4f8cff'], [maArr(60), '#b08cff']].forEach(([data, color]) => {
+  maSet.forEach(([p, color]) => {
+    const data = maArr(p);
     const s = chart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    s.setData(bars.map((b, i) => ({ time: b.time, value: data[i] })).slice(start).filter(p => p.value != null));
+    s.setData(bars.map((b, i) => ({ time: b.time, value: data[i] })).slice(start).filter(pt => pt.value != null));
   });
   chart.timeScale().fitContent();
 }
@@ -2680,12 +2864,15 @@ function paintSummary(el, d, item, parts, flags) {
   SCORE_DIMS.forEach(dim => {
     const p = parts[dim.key];
     const pending = (dim.key === 'technical' && flags.techPending) || (dim.key === 'news' && flags.newsPending);
-    html += `<div class="sum-dim"><div class="sum-dim-head"><span>${dim.icon}</span><span class="sum-dim-name">${dim.label}</span><span class="sum-dim-wt">가중 ${Math.round(dim.weight * 100)}%</span>`;
+    const hasDetail = p && p.detail;
+    const scopeTag = hasDetail ? `<span class="sd-scope ${p.detail.scope === '거시' ? 'macro' : 'micro'}">${esc(p.detail.scope)}</span>` : '';
+    html += `<div class="sum-dim${hasDetail ? ' expandable' : ''}"><div class="sum-dim-head"><span>${dim.icon}</span><span class="sum-dim-name">${dim.label}</span>${scopeTag}<span class="sum-dim-wt">가중 ${Math.round(dim.weight * 100)}%</span>`;
     if (p) {
       const g = scoreGrade(p.score);
-      html += `<span class="sum-dim-score ${g.cls}">${p.score}</span></div>
+      html += `<span class="sum-dim-score ${g.cls}">${p.score}${hasDetail ? '<span class="sd-caret">▶</span>' : ''}</span></div>
         <div class="sum-track"><div class="sum-fill" style="width:${p.score}%;background:${g.color}"></div></div>
-        <div class="sum-reasons">${esc(p.summary)}${p.reasons && p.reasons.length ? '<br>' + p.reasons.map(r => `<span>${esc(r)}</span>`).join('') : ''}</div>`;
+        <div class="sum-reasons">${esc(p.summary)}${p.reasons && p.reasons.length ? '<br>' + p.reasons.map(r => `<span>${esc(r)}</span>`).join('') : ''}${hasDetail ? '<br><span style="color:var(--accent)">▸ 어떤 데이터·지표로 평가했는지 보기</span>' : ''}</div>`;
+      if (hasDetail) html += `<div class="sd-wrap" hidden>${renderScoreDetail(p.detail)}</div>`;
     } else {
       html += `<span class="sum-dim-na">${pending ? '분석 중…' : '데이터 없음'}</span></div>`;
     }
@@ -2694,6 +2881,13 @@ function paintSummary(el, d, item, parts, flags) {
   html += `<div id="sum-ai-zone" style="margin-top:8px"></div>`;
   html += `<div class="disclaimer">⚠️ 종합·항목별 점수는 공개 데이터를 규칙으로 계산한 <b>참고용 지표</b>이며 투자 권유가 아닙니다. 업종·거시 항목은 당일·단기 데이터 비중이 커 변동이 큽니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
   el.innerHTML = html;
+  el.querySelectorAll('.sum-dim.expandable').forEach(dimEl => {
+    dimEl.addEventListener('click', () => {
+      const w = dimEl.querySelector('.sd-wrap');
+      const open = dimEl.classList.toggle('expanded');
+      if (w) w.hidden = !open;
+    });
+  });
   if (comp) renderAiZone(item, d, parts, comp);
 }
 
@@ -2733,7 +2927,26 @@ async function renderSummaryTab(d, item) {
 }
 
 // ═════════════════════ 종합 투자 점수 엔진 (규칙 기반) ═════════════════════
-// 각 함수 → {score:0~100, summary, reasons[]} 또는 데이터 없으면 null
+// 각 함수 → {score:0~100, summary, reasons[], detail?} 또는 데이터 없으면 null
+// detail = { scope:'거시'|'미시', asOf, basis, metrics:[{label,value,verdict,rule,why}] }
+function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 2 }); }
+function verdictWord(v) { return v === 'good' ? '우호' : v === 'bad' ? '부담' : '중립'; }
+// detail 객체 → 펼침 패널 HTML (info-bar·sum-dim 공용)
+function renderScoreDetail(detail) {
+  if (!detail) return '';
+  const scopeCls = detail.scope === '거시' ? 'macro' : 'micro';
+  let h = `<div class="score-detail">`;
+  h += `<div class="sd-basis"><span class="sd-scope ${scopeCls}">${esc(detail.scope)} 관점</span>${esc(detail.basis)}</div>`;
+  (detail.metrics || []).forEach(m => {
+    h += `<div class="score-metric"><span class="sm-dot ${m.verdict}"></span><div class="sm-body">
+        <div class="sm-top"><span class="sm-label">${esc(m.label)}</span><span class="sm-value ${m.verdict}">${esc(m.value)}</span></div>
+        ${m.rule ? `<div class="sm-rule">판정 기준: ${esc(m.rule)} → <b class="${m.verdict}">${verdictWord(m.verdict)}</b></div>` : ''}
+        ${m.why ? `<div class="sm-why">왜 중요한가: ${esc(m.why)}</div>` : ''}
+      </div></div>`;
+  });
+  if (detail.asOf) h += `<div class="sd-asof">📌 데이터 기준: ${esc(detail.asOf)}</div>`;
+  return h + `</div>`;
+}
 const SCORE_DIMS = [
   { key: 'finance',  label: '재무',      icon: '📊', weight: 0.28 },
   { key: 'technical',label: '기술',      icon: '📈', weight: 0.20 },
@@ -2753,7 +2966,12 @@ function scoreFinanceVal(d, item) {
   return {
     score,
     summary: `${checks.length}개 지표 중 긍정 ${good.length} · 주의 ${bad.length}`,
-    reasons: [...good.slice(0, 2).map(c => '✓ ' + c.title), ...bad.slice(0, 2).map(c => '✗ ' + c.title)]
+    reasons: [...good.slice(0, 2).map(c => '✓ ' + c.title), ...bad.slice(0, 2).map(c => '✗ ' + c.title)],
+    detail: {
+      scope: '미시', asOf: '최근 결산 재무제표 · 증권사 컨센서스',
+      basis: '밸류에이션(PER·PBR)·수익성(ROE/ROA)·성장성·재무 안정성·애널리스트 의견을 종합한 기업 펀더멘털 평가입니다. 종목 고유의 미시 지표입니다.',
+      metrics: checks.map(c => ({ label: c.title, value: verdictWord(c.grade), verdict: c.grade, why: c.desc }))
+    }
   };
 }
 
@@ -2765,10 +2983,16 @@ function scoreTechnicalVal(bars) {
   const buy = sigs.filter(s => s.grade === 'buy').length;
   const sell = sigs.filter(s => s.grade === 'sell').length;
   const score = Math.max(0, Math.min(100, Math.round(50 + (buy - sell) / sigs.length * 50)));
+  const gmap = { buy: 'good', sell: 'bad', neutral: 'mid' };
   return {
     score,
     summary: `${sigs.length}개 지표 중 매수 ${buy} · 매도 ${sell}`,
-    reasons: sigs.filter(s => s.grade !== 'neutral').slice(0, 3).map(s => (s.grade === 'buy' ? '▲ ' : '▼ ') + s.title)
+    reasons: sigs.filter(s => s.grade !== 'neutral').slice(0, 3).map(s => (s.grade === 'buy' ? '▲ ' : '▼ ') + s.title),
+    detail: {
+      scope: '미시', asOf: '최근 일봉 종가 기준 (장중 지연 시세)',
+      basis: 'RSI·MACD·이동평균(골든크로스)·볼린저밴드·스토캐스틱 등 표준 기술 지표의 매수/매도 신호 개수를 50점 기준으로 가감합니다. 가격·거래량 흐름의 미시 지표입니다.',
+      metrics: sigs.map(s => ({ label: s.title, value: s.grade === 'buy' ? '매수' : s.grade === 'sell' ? '매도' : '중립', verdict: gmap[s.grade], why: s.desc }))
+    }
   };
 }
 
@@ -2777,23 +3001,66 @@ function scoreNewsVal(scored) {
   const net = scored.reduce((a, x) => a + x.s, 0);
   const pos = scored.filter(x => x.s > 0).length, neg = scored.filter(x => x.s < 0).length;
   const score = Math.max(0, Math.min(100, Math.round(50 + net * 4))); // net ±12 부근에서 포화
-  return { score, summary: `호재 ${pos} · 악재 ${neg} · 합산 ${net >= 0 ? '+' : ''}${net}`, reasons: [] };
+  const top = [...scored].filter(x => x.s !== 0).sort((a, b) => Math.abs(b.s) - Math.abs(a.s)).slice(0, 6);
+  return {
+    score, summary: `호재 ${pos} · 악재 ${neg} · 합산 ${net >= 0 ? '+' : ''}${net}`, reasons: [],
+    detail: {
+      scope: '미시', asOf: '네이버 종목 뉴스 헤드라인 (실시간)',
+      basis: '최근 종목 뉴스 제목을 호재/악재 키워드로 채점해 합산합니다(호재 +, 악재 −). 합산 점수에 비례해 50점 기준으로 가감합니다. 종목 고유의 미시 신호입니다.',
+      metrics: top.length ? top.map(x => ({
+        label: (x.title || '').slice(0, 48) + ((x.title || '').length > 48 ? '…' : ''),
+        value: (x.s > 0 ? '호재 +' : '악재 ') + x.s, verdict: x.s > 0 ? 'good' : 'bad',
+        why: esc(x.source || '') ? '출처: ' + x.source : '제목 키워드 기반 감성 점수'
+      })) : [{ label: '뚜렷한 호재·악재 키워드 없음', value: '중립', verdict: 'mid', why: '최근 헤드라인에서 강한 방향성 신호가 감지되지 않았습니다.' }]
+    }
+  };
 }
 
 function scoreMacroVal() {
   const md = macroData;
-  let pts = 0, max = 0; const reasons = [];
-  const chkUp = (sym, label) => {
+  const metrics = [];
+  const idxChk = (sym, label, why) => {
     const d = md[sym];
-    if (d && d.price != null && d.prev) { max++; if (d.price >= d.prev) { pts++; reasons.push('▲ ' + label + ' 상승'); } else reasons.push('▼ ' + label + ' 하락'); }
+    if (!d || d.price == null || !d.prev) return;
+    const up = d.price >= d.prev, pct = (d.price - d.prev) / d.prev * 100;
+    metrics.push({
+      label, value: `${fmtNum(d.price)} ${up ? '▲' : '▼'} ${up ? '+' : ''}${pct.toFixed(2)}%`,
+      verdict: up ? 'good' : 'bad', rule: '전일 종가 대비 상승이면 우호, 하락이면 부담', why
+    });
   };
-  chkUp('^KS11', '코스피'); chkUp('^IXIC', '나스닥'); chkUp('^GSPC', 'S&P500');
+  idxChk('^KS11', '코스피', '국내 증시 대표 지수. 상승은 국내 위험자산 선호 심리를 반영합니다.');
+  idxChk('^IXIC', '나스닥', '미국 기술주 중심 지수. 글로벌 성장주·반도체 투자 심리의 선행 지표입니다.');
+  idxChk('^GSPC', 'S&P 500', '미국 대형주 500개 지수. 글로벌 위험선호의 큰 방향을 보여줍니다.');
   const vix = md['^VIX'];
-  if (vix && vix.price != null) { max++; if (vix.price < 20) { pts++; reasons.push('VIX ' + vix.price.toFixed(1) + ' 안정'); } else reasons.push('VIX ' + vix.price.toFixed(1) + ' 경계'); }
+  if (vix && vix.price != null) {
+    const calm = vix.price < 20;
+    metrics.push({
+      label: 'VIX (공포지수)', value: vix.price.toFixed(1) + (calm ? ' · 안정' : ' · 경계'),
+      verdict: calm ? 'good' : 'bad', rule: '20 미만이면 안정(우호), 20 이상이면 변동성 경계(부담)',
+      why: 'S&P500 옵션의 기대 변동성. 높을수록 시장이 불안·공포 상태임을 뜻합니다.'
+    });
+  }
   const tnx = md['^TNX'];
-  if (tnx && tnx.price != null && tnx.prev) { max++; if (tnx.price <= tnx.prev) { pts++; reasons.push('▼ 미 10년물 금리 안정'); } else reasons.push('▲ 금리 상승 부담'); }
-  if (!max) return null;
-  return { score: Math.round(pts / max * 100), summary: `시장 ${max}개 지표 중 우호 ${pts}`, reasons: reasons.slice(0, 4) };
+  if (tnx && tnx.price != null && tnx.prev) {
+    const easing = tnx.price <= tnx.prev;
+    metrics.push({
+      label: '미 국채 10년 금리', value: tnx.price.toFixed(2) + '%' + (easing ? ' ▼' : ' ▲'),
+      verdict: easing ? 'good' : 'bad', rule: '전일 대비 하락·보합이면 우호, 상승이면 부담',
+      why: '글로벌 자금조달 비용의 기준. 금리 상승은 성장주·위험자산에 부담으로 작용합니다.'
+    });
+  }
+  if (!metrics.length) return null;
+  const pts = metrics.filter(m => m.verdict === 'good').length;
+  return {
+    score: Math.round(pts / metrics.length * 100),
+    summary: `시장 ${metrics.length}개 지표 중 우호 ${pts}`,
+    reasons: metrics.map(m => (m.verdict === 'good' ? '▲ ' : '▼ ') + m.label).slice(0, 4),
+    detail: {
+      scope: '거시', asOf: '실시간 시세 (약 15분 지연)',
+      basis: '국내외 대표 지수·시장 변동성(VIX)·기준 금리가 위험자산에 우호적인지를 종합합니다. 모든 종목에 공통으로 적용되는 거시 환경 지표입니다.',
+      metrics
+    }
+  };
 }
 
 function scoreMicroVal(d) {
@@ -2801,14 +3068,27 @@ function scoreMicroVal(d) {
   if (!dt.length) return null; // 미국 등 수급 미제공 → 차원 제외
   const sum = key => dt.slice(0, 5).reduce((a, x) => a + (numOf(x[key]) || 0), 0);
   const fNet = sum('foreignerPureBuyQuant'), oNet = sum('organPureBuyQuant');
-  let pts = 0, max = 0; const reasons = [];
+  let pts = 0, max = 0; const reasons = []; const metrics = [];
   max += 2; if (fNet > 0) { pts += 2; reasons.push('✓ 외국인 5일 순매수'); } else reasons.push('✗ 외국인 5일 순매도');
+  metrics.push({ label: '외국인 수급 (5일 누적)', value: (fNet > 0 ? '순매수 +' : '순매도 ') + fmtNum(fNet) + '주', verdict: fNet > 0 ? 'good' : 'bad',
+    rule: '5거래일 순매수면 우호, 순매도면 부담 (가중 2배)', why: '외국인은 대형주 주가의 핵심 수급 주체로, 지속 매수는 강한 상승 동력입니다.' });
   max += 2; if (oNet > 0) { pts += 2; reasons.push('✓ 기관 5일 순매수'); } else reasons.push('✗ 기관 5일 순매도');
+  metrics.push({ label: '기관 수급 (5일 누적)', value: (oNet > 0 ? '순매수 +' : '순매도 ') + fmtNum(oNet) + '주', verdict: oNet > 0 ? 'good' : 'bad',
+    rule: '5거래일 순매수면 우호, 순매도면 부담 (가중 2배)', why: '연기금·자산운용사 등 기관의 매수는 중장기 신뢰를 반영하는 수급 신호입니다.' });
   if (dt.length >= 2) {
     const recent = numOf(dt[0].foreignerHoldRatio), old = numOf(dt[Math.min(4, dt.length - 1)].foreignerHoldRatio);
-    if (recent != null && old != null) { max++; if (recent >= old) { pts++; reasons.push('✓ 외국인 보유비중 증가'); } else reasons.push('✗ 외국인 보유비중 감소'); }
+    if (recent != null && old != null) {
+      const up = recent >= old; if (up) pts++; max++;
+      reasons.push(up ? '✓ 외국인 보유비중 증가' : '✗ 외국인 보유비중 감소');
+      metrics.push({ label: '외국인 보유비중 추이', value: old.toFixed(2) + '% → ' + recent.toFixed(2) + '%', verdict: up ? 'good' : 'bad',
+        rule: '최근 5일간 보유비중이 늘면 우호, 줄면 부담', why: '외국인 지분율 상승은 장기 자금이 종목에 유입되고 있음을 뜻합니다.' });
+    }
   }
-  return { score: Math.round(pts / max * 100), summary: '외국인·기관 수급 종합 (최근 5거래일)', reasons };
+  return {
+    score: Math.round(pts / max * 100), summary: '외국인·기관 수급 종합 (최근 5거래일)', reasons,
+    detail: { scope: '미시', asOf: '최근 5거래일 투자자별 매매동향 (국내 종목)',
+      basis: '외국인·기관의 순매수/순매도와 외국인 보유비중 변화를 봅니다. 종목으로 실제 돈이 들어오는지 보여주는 미시 수급 지표입니다.', metrics }
+  };
 }
 
 function scoreIndustryVal(d, item) {
@@ -2823,7 +3103,19 @@ function scoreIndustryVal(d, item) {
   return {
     score,
     summary: `동종 ${peers.length}개 평균 ${peerAvg >= 0 ? '+' : ''}${peerAvg.toFixed(1)}% 대비 ${rel >= 0 ? '우위 +' : '열위 '}${rel.toFixed(1)}%p (당일 기준)`,
-    reasons: [rel >= 0 ? '✓ 업종 평균 대비 강세 (당일)' : '✗ 업종 평균 대비 약세 (당일)']
+    reasons: [rel >= 0 ? '✓ 업종 평균 대비 강세 (당일)' : '✗ 업종 평균 대비 약세 (당일)'],
+    detail: {
+      scope: '미시', asOf: '당일 동종업계 등락률 비교',
+      basis: '같은 업종 동종 기업들의 평균 등락률과 이 종목의 등락률을 비교합니다. 업종 안에서 상대적으로 강한지(주도주인지)를 보는 미시 지표입니다.',
+      metrics: [
+        { label: '이 종목 당일 등락률', value: (myChg >= 0 ? '+' : '') + myChg.toFixed(2) + '%', verdict: rel >= 0 ? 'good' : 'bad',
+          rule: '동종 평균보다 높으면 우호, 낮으면 부담', why: '같은 업황 속에서 시장이 이 종목을 상대적으로 더(덜) 선호하는지를 보여줍니다.' },
+        { label: `동종 ${peers.length}개 평균 등락률`, value: (peerAvg >= 0 ? '+' : '') + peerAvg.toFixed(2) + '%', verdict: 'mid',
+          rule: '비교 기준선', why: '같은 업종이 함께 움직이는 평균. 이 선보다 위면 업종 내 강세입니다.' },
+        { label: '상대 강도 (종목 − 업종)', value: (rel >= 0 ? '+' : '') + rel.toFixed(2) + '%p', verdict: rel >= 0 ? 'good' : 'bad',
+          rule: '+면 업종 내 우위, −면 열위', why: '업종 전체 흐름을 제거하고 이 종목만의 상대적 힘을 나타냅니다.' }
+      ]
+    }
   };
 }
 
@@ -2842,25 +3134,48 @@ function scoreGrade(s) {
 
 // ── 메인 종합 투자 환경 인포그래픽 (거시·모멘텀·시장뉴스) ──
 let marketNewsNet = null; // 시장 헤드라인 감성 합산 (renderNews가 채움)
+let marketNewsItems = null; // 시장 뉴스 헤드라인 목록 (Top3 핵심용)
+let trendingMarket = 'kr'; // 떠오르는 업종 시장 (kr|us)
+let trendingCache = { kr: null, us: null };
+const blockAsOf = {}; // 블록별 데이터 기준 시각
 const MAIN_DIMS = [
   { key: 'macro',    label: '거시 환경',       icon: '🌐', weight: 0.40 },
   { key: 'momentum', label: '관심종목 모멘텀', icon: '📈', weight: 0.35 },
   { key: 'news',     label: '시장 뉴스 분위기',icon: '📰', weight: 0.25 }
 ];
 function scoreWatchlistMomentum() {
-  const qs = watchlist.map(w => quoteCache[w.symbol]).filter(q => q && q.price && q.prev);
-  if (!qs.length) return null;
+  const rows = watchlist.map(w => ({ w, q: quoteCache[w.symbol] })).filter(x => x.q && x.q.price && x.q.prev);
+  if (!rows.length) return null;
+  const qs = rows.map(x => x.q);
   const up = qs.filter(q => q.price > q.prev).length;
   const r1 = qs.filter(q => q.ret1m != null);
   const posM = r1.filter(q => q.ret1m > 0).length;
   const score = r1.length
     ? Math.round((up / qs.length * 0.65 + posM / r1.length * 0.35) * 100)
     : Math.round(up / qs.length * 100);
-  return { score, summary: `${qs.length}개 중 당일 ${up}개 상승${r1.length ? ` · 1개월 플러스 ${posM}개` : ''}` };
+  const metrics = rows.map(({ w, q }) => {
+    const pct = (q.price - q.prev) / q.prev * 100, isUp = q.price > q.prev;
+    const r1txt = q.ret1m != null ? ` · 1개월 ${q.ret1m >= 0 ? '+' : ''}${q.ret1m.toFixed(1)}%` : '';
+    return { label: w.name || w.symbol, value: `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%${r1txt}`, verdict: isUp ? 'good' : 'bad',
+      rule: '당일 상승이면 우호, 하락이면 부담', why: '내 관심종목이 오늘 오르고 한 달 추세가 플러스인지로 체감 분위기를 측정합니다.' };
+  }).sort((a, b) => (b.verdict === 'good') - (a.verdict === 'good'));
+  return {
+    score, summary: `${qs.length}개 중 당일 ${up}개 상승${r1.length ? ` · 1개월 플러스 ${posM}개` : ''}`,
+    detail: { scope: '미시', asOf: '실시간 관심종목 시세',
+      basis: '관심종목들의 당일 상승 비율(65%)과 최근 한 달 플러스 비율(35%)을 가중 평균합니다. 시장 전체가 아니라 내 종목 기준의 체감 모멘텀입니다.', metrics }
+  };
 }
 function scoreMarketNewsVal() {
   if (marketNewsNet == null) return null;
-  return { score: Math.max(0, Math.min(100, Math.round(50 + marketNewsNet * 4))), summary: `시장 헤드라인 감성 합산 ${marketNewsNet >= 0 ? '+' : ''}${marketNewsNet}` };
+  const pos = marketNewsNet > 0;
+  return {
+    score: Math.max(0, Math.min(100, Math.round(50 + marketNewsNet * 4))),
+    summary: `시장 헤드라인 감성 합산 ${marketNewsNet >= 0 ? '+' : ''}${marketNewsNet}`,
+    detail: { scope: '거시', asOf: '시장 뉴스 헤드라인 (실시간)',
+      basis: '주요 경제·증시 헤드라인 제목을 호재/악재 키워드로 채점해 합산합니다. 시장 전반의 뉴스 분위기를 나타내는 거시 신호입니다.',
+      metrics: [{ label: '시장 뉴스 감성 합산', value: (marketNewsNet >= 0 ? '+' : '') + marketNewsNet, verdict: marketNewsNet === 0 ? 'mid' : pos ? 'good' : 'bad',
+        rule: '합산이 +면 우호, −면 부담, 0이면 중립', why: '헤드라인 전반의 톤이 위험선호(호재)인지 위험회피(악재)인지를 보여줍니다. 상단 시장 뉴스 목록에서 개별 기사를 확인할 수 있습니다.' }] }
+  };
 }
 
 function renderMainInfographic() {
@@ -2890,10 +3205,12 @@ function renderMainInfographic() {
   </div><div class="info-bars">`;
   MAIN_DIMS.forEach(d => {
     const p = parts[d.key];
-    html += `<div class="info-bar"><div class="info-bar-head"><span>${d.icon}</span><span>${d.label}</span>`;
+    const hasDetail = p && p.detail;
+    html += `<div class="info-bar${hasDetail ? ' expandable' : ''}"><div class="info-bar-head"><span>${d.icon}</span><span>${d.label}</span>`;
     if (p) {
       const gg = scoreGrade(p.score);
-      html += `<span class="ib-score ${gg.cls}">${p.score}</span></div><div class="info-bar-track"><div class="info-bar-fill" style="width:${p.score}%;background:${gg.color}"></div></div><div class="info-bar-note">${esc(p.summary)}</div>`;
+      html += `<span class="ib-score ${gg.cls}">${p.score}${hasDetail ? '<span class="sd-caret">▶</span>' : ''}</span></div><div class="info-bar-track"><div class="info-bar-fill" style="width:${p.score}%;background:${gg.color}"></div></div><div class="info-bar-note">${esc(p.summary)}${hasDetail ? ' · <span style="color:var(--accent)">근거 보기</span>' : ''}</div>`;
+      if (hasDetail) html += `<div class="sd-wrap" hidden>${renderScoreDetail(p.detail)}</div>`;
     } else {
       html += `<span class="ib-na">집계 중…</span></div>`;
     }
@@ -2901,6 +3218,13 @@ function renderMainInfographic() {
   });
   html += `</div><div class="info-foot"><button class="ai-btn" id="main-ai-btn">${hasClaudeKey() ? '🤖 Claude 시황 코멘트' : '🤖 Claude 코멘트 (AI 설정 필요)'}</button><span class="info-disclaim">규칙 기반 참고 지표이며 투자 권유가 아닙니다. 시장 환경은 수시로 변합니다.</span></div><div id="main-ai-zone"></div></div>`;
   el.innerHTML = html;
+  el.querySelectorAll('.info-bar.expandable').forEach(bar => {
+    bar.addEventListener('click', () => {
+      const w = bar.querySelector('.sd-wrap');
+      const open = bar.classList.toggle('expanded');
+      if (w) w.hidden = !open;
+    });
+  });
   document.getElementById('main-ai-btn').onclick = async () => {
     if (!hasClaudeKey()) { document.getElementById('settings-btn').click(); return; }
     const btn = document.getElementById('main-ai-btn');
@@ -2925,6 +3249,221 @@ async function claudeMarketComment(parts, score) {
   const sys = '당신은 한국어로 답하는 신중한 시황 애널리스트입니다. 제공된 지표만 근거로 간결하게 시장 분위기를 설명하며 단정적 예측은 피합니다. 투자 권유가 아닌 참고용입니다.';
   const user = `오늘의 종합 투자 환경 지표입니다 (각 0~100, 높을수록 우호적).\n\n종합: ${score}/100\n${lines}\n거시 세부: ${macroDetail}\n\n사용자 관심종목: ${holds}\n\n위를 바탕으로 4~6문장으로 오늘 시장 환경을 요약하세요: (1) 전반적 분위기 한 줄, (2) 우호/부담 요인, (3) 관심종목 보유자가 유의할 점. 핵심 단어는 **굵게** 표시하세요.`;
   return await callClaude(sys, user, 700);
+}
+
+// ═════════════════════ 기준 시각 표시 ═════════════════════
+function fmtClock(ts) { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
+function stampAsof(elId) {
+  blockAsOf[elId] = Date.now();
+  const el = document.getElementById(elId);
+  if (el) el.textContent = '기준 ' + fmtClock(blockAsOf[elId]);
+}
+
+// ═════════════════════ 🔥 떠오르는 업종 ═════════════════════
+// 미국 11개 SPDR 섹터 ETF + 대표 종목
+const US_SECTORS = [
+  { symbol: 'XLK',  name: '기술',        leaders: ['애플', '엔비디아', '마이크로소프트'] },
+  { symbol: 'XLC',  name: '커뮤니케이션', leaders: ['메타', '알파벳', '넷플릭스'] },
+  { symbol: 'XLY',  name: '임의소비재',  leaders: ['아마존', '테슬라', '홈디포'] },
+  { symbol: 'XLF',  name: '금융',        leaders: ['JP모건', '뱅크오브아메리카', '비자'] },
+  { symbol: 'XLV',  name: '헬스케어',    leaders: ['일라이릴리', '유나이티드헬스', 'J&J'] },
+  { symbol: 'XLI',  name: '산업재',      leaders: ['GE에어로', '캐터필러', '보잉'] },
+  { symbol: 'XLE',  name: '에너지',      leaders: ['엑슨모빌', '셰브론'] },
+  { symbol: 'XLP',  name: '필수소비재',  leaders: ['코스트코', 'P&G', '월마트'] },
+  { symbol: 'XLB',  name: '소재',        leaders: ['린데', '셔윈윌리엄스'] },
+  { symbol: 'XLU',  name: '유틸리티',    leaders: ['넥스트에라', '서던컴퍼니'] },
+  { symbol: 'XLRE', name: '부동산',      leaders: ['프로로지스', '아메리칸타워'] }
+];
+async function fetchNaverIndustries() {
+  const url = 'https://m.stock.naver.com/api/stocks/industry?page=1&pageSize=45';
+  const j = await fetchViaProxy(url, false, o => o && Array.isArray(o.groups));
+  return (j.groups || []).map(g => ({
+    no: g.no, name: g.name, changeRate: parseFloat(g.changeRate),
+    riseCount: +g.riseCount || 0, fallCount: +g.fallCount || 0, totalCount: +g.totalCount || 0
+  })).filter(g => !isNaN(g.changeRate));
+}
+async function fetchIndustryLeaders(no) {
+  try {
+    const url = `https://m.stock.naver.com/api/stocks/industry/${no}?page=1&pageSize=4`;
+    const j = await fetchViaProxy(url, false, o => o && Array.isArray(o.stocks));
+    return (j.stocks || []).map(s => ({ name: s.stockName, code: s.itemCode, ratio: parseFloat(s.fluctuationsRatio) })).filter(x => x.name).slice(0, 3);
+  } catch (e) { return []; }
+}
+async function fetchUsSectors(noCache) {
+  const data = await fetchSpark(US_SECTORS.map(s => s.symbol), '1d', '15m', noCache);
+  return US_SECTORS.map(s => {
+    const d = data[s.symbol];
+    if (!d) return null;
+    const price = lastValid(d.close), prev = d.previousClose;
+    if (price == null || !prev) return null;
+    return { name: s.name, leaders: s.leaders, changeRate: (price - prev) / prev * 100 };
+  }).filter(Boolean);
+}
+// 업종이 떠오르는 이유 (규칙 기반)
+function sectorWhy(s, mk) {
+  const cr = s.changeRate, p = [];
+  if (mk === 'kr') {
+    const breadth = s.totalCount ? Math.round(s.riseCount / s.totalCount * 100) : null;
+    if (cr >= 3) p.push(`업종 지수가 +${cr.toFixed(1)}%로 강하게 상승하며 오늘 시장 자금이 집중된 섹터`);
+    else if (cr >= 0.5) p.push(`업종 지수가 +${cr.toFixed(1)}% 올라 상대적 강세`);
+    else if (cr < 0) p.push(`업종 지수는 ${cr.toFixed(1)}%이나 순위권에 든 방어적 섹터`);
+    else p.push(`업종 지수 +${cr.toFixed(1)}%`);
+    if (breadth != null && breadth >= 75) p.push(`구성 종목의 ${breadth}%가 동반 상승해 일부 종목만이 아닌 업종 전반의 매수세`);
+    else if (breadth != null && breadth >= 50) p.push(`구성 종목 ${breadth}%가 상승`);
+    if (s.leaders && s.leaders.length && s.leaders[0].ratio >= 8) p.push(`${s.leaders[0].name}(+${s.leaders[0].ratio.toFixed(1)}%) 등 주도주 급등이 견인`);
+  } else {
+    if (cr >= 1.5) p.push(`섹터 ETF가 +${cr.toFixed(1)}%로 뚜렷한 강세를 보인 미국 섹터`);
+    else if (cr >= 0.3) p.push(`섹터 ETF +${cr.toFixed(1)}% 상승`);
+    else if (cr < 0) p.push(`섹터 ETF ${cr.toFixed(1)}%이나 상대적으로 선방`);
+    else p.push(`섹터 ETF +${cr.toFixed(1)}%`);
+    if (s.leaders && s.leaders.length) p.push(`${s.leaders.slice(0, 2).join('·')} 등 대형주가 속한 섹터`);
+  }
+  return p.join(', ') + '.';
+}
+async function renderTrendingSectors(noCache) {
+  const wrap = document.getElementById('trending-sectors');
+  if (!wrap) return;
+  const mk = trendingMarket;
+  wrap.innerHTML = '<div class="loading">업종별 자금 흐름을 분석하는 중…</div>';
+  try {
+    let sectors;
+    if (mk === 'kr') {
+      const inds = await fetchNaverIndustries();
+      sectors = inds.sort((a, b) => b.changeRate - a.changeRate).slice(0, 6);
+      await Promise.all(sectors.map(async t => { t.leaders = await fetchIndustryLeaders(t.no); }));
+    } else {
+      const us = await fetchUsSectors(noCache);
+      sectors = us.sort((a, b) => b.changeRate - a.changeRate).slice(0, 6);
+    }
+    if (trendingMarket !== mk) return; // 사용자가 토글을 바꿈
+    trendingCache[mk] = sectors;
+    paintTrending(wrap, sectors, mk);
+    stampAsof('ts-asof');
+    if (typeof renderTopInsights === 'function') renderTopInsights();
+  } catch (e) {
+    wrap.innerHTML = `<div class="loading">업종 데이터를 불러오지 못했습니다. <button class="retry-btn" onclick="renderTrendingSectors(true)" style="margin-left:8px">다시 시도</button></div>`;
+  }
+}
+function paintTrending(wrap, sectors, mk) {
+  if (!sectors || !sectors.length) { wrap.innerHTML = '<div class="loading">표시할 업종이 없습니다.</div>'; return; }
+  let html = '<div class="ts-grid">';
+  sectors.forEach((s, i) => {
+    const cls = s.changeRate >= 0 ? 'up' : 'down';
+    const hot = i === 0 && s.changeRate > 0;
+    const breadth = (mk === 'kr' && s.totalCount) ? Math.round(s.riseCount / s.totalCount * 100) : null;
+    html += `<div class="ts-card${hot ? ' hot' : ''}">
+      <div class="ts-card-head">
+        <span class="ts-rank-badge">${i + 1}</span>
+        <span class="ts-name">${esc(s.name)}</span>
+        <span class="ts-chg ${cls}">${s.changeRate >= 0 ? '+' : ''}${s.changeRate.toFixed(2)}%</span>
+      </div>`;
+    if (breadth != null) {
+      html += `<div class="ts-breadth">구성 ${s.totalCount}개 중 <b class="up">▲ ${s.riseCount}</b> · <b class="down">▼ ${s.fallCount}</b> (상승 ${breadth}%)
+        <div class="ts-breadth-bar"><div class="ts-breadth-fill" style="width:${breadth}%"></div></div></div>`;
+    }
+    if (mk === 'kr' && s.leaders && s.leaders.length) {
+      html += `<div class="ts-leaders">🚀 주도주 ` + s.leaders.map(l =>
+        `<span class="ts-leader">${esc(l.name)} <span class="${l.ratio >= 0 ? 'up' : 'down'}">${isNaN(l.ratio) ? '' : (l.ratio >= 0 ? '+' : '') + l.ratio.toFixed(1) + '%'}</span></span>`).join('') + `</div>`;
+    } else if (mk === 'us' && s.leaders && s.leaders.length) {
+      html += `<div class="ts-leaders">🏢 대표 종목 ` + s.leaders.map(n => `<span class="ts-leader">${esc(n)}</span>`).join('') + `</div>`;
+    }
+    html += `<div class="ts-why">💡 ${esc(sectorWhy(s, mk))}</div></div>`;
+  });
+  wrap.innerHTML = html + '</div>';
+}
+// 토글 핸들러
+(() => {
+  const tog = document.getElementById('ts-toggle');
+  if (!tog) return;
+  tog.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    trendingMarket = b.dataset.mk;
+    tog.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    if (trendingCache[trendingMarket]) { paintTrending(document.getElementById('trending-sectors'), trendingCache[trendingMarket], trendingMarket); stampAsof('ts-asof'); }
+    else renderTrendingSectors();
+  });
+})();
+
+// ═════════════════════ 🔝 오늘의 핵심 Top3 ═════════════════════
+// 거시 지표별 정규화 계수(이 %만큼 움직이면 "유의미") + 방향별 영향 설명
+const INSIGHT_MACRO = [
+  { sym: '^KS11', name: '코스피', emoji: '📈', norm: 1.0, up: '국내 위험선호가 살아나 관심종목 전반에 우호적입니다.', dn: '국내 증시 전반의 투자심리가 위축되는 신호입니다.' },
+  { sym: '^KQ11', name: '코스닥', emoji: '📈', norm: 1.2, up: '중소형·성장주로 매수세가 유입되는 신호입니다.', dn: '중소형·성장주의 투자심리가 약해지고 있습니다.' },
+  { sym: '^IXIC', name: '나스닥', emoji: '🇺🇸', norm: 1.2, up: '미국 기술주 강세는 국내 반도체·AI주에 우호적으로 이어지기 쉽습니다.', dn: '미국 기술주 약세는 국내 성장주에 부담으로 전이될 수 있습니다.' },
+  { sym: 'KRW=X', name: '원/달러 환율', emoji: '💱', norm: 0.5, up: '원화 약세(환율 상승)는 수출주에 유리하나 외국인 자금이탈 우려가 있습니다.', dn: '원화 강세(환율 하락)는 외국인 자금 유입에 우호적입니다.' },
+  { sym: '^TNX', name: '미 국채 10년 금리', emoji: '🏦', norm: 2.0, up: '금리 상승은 성장주·기술주 밸류에이션에 부담을 줍니다.', dn: '금리 하락은 성장주·기술주에 우호적입니다.' },
+  { sym: 'CL=F', name: 'WTI 유가', emoji: '🛢️', norm: 2.5, up: '유가 급등은 정유·조선에 수혜, 항공·운송·화학엔 비용 부담이며 인플레 압력입니다.', dn: '유가 하락은 운송·항공 비용을 낮추나 에너지주엔 부담입니다.' },
+  { sym: '^VIX', name: 'VIX 공포지수', emoji: '⚠️', norm: 4.0, up: '변동성 급등은 시장 불안 확대 신호로, 위험회피 심리가 강해집니다.', dn: '변동성 진정은 위험자산 선호 회복 신호입니다.' },
+  { sym: 'BTC-USD', name: '비트코인', emoji: '₿', norm: 4.0, up: '위험자산 선호의 바로미터로, 코인·핀테크 관련주와 동조하는 경향이 있습니다.', dn: '위험자산 회피 심리가 코인 시장에서 먼저 나타나는 신호일 수 있습니다.' }
+];
+function buildInsightCandidates() {
+  const cands = [];
+  INSIGHT_MACRO.forEach(def => {
+    const d = macroData[def.sym];
+    if (!d || d.price == null || !d.prev) return;
+    const pct = (d.price - d.prev) / d.prev * 100;
+    const impact = Math.abs(pct) / def.norm;
+    if (impact < 0.55) return; // 평범한 변동은 후보 제외
+    const up = pct >= 0;
+    const valTxt = def.sym === '^TNX' ? d.price.toFixed(2) + '%' : (def.sym === 'KRW=X' ? fmtNum(d.price) + '원' : fmtNum(d.price));
+    cands.push({
+      cat: 'macro', emoji: def.emoji, impact,
+      title: `${def.name} ${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`,
+      metric: `현재 ${valTxt} · 전일 대비 ${up ? '+' : ''}${pct.toFixed(2)}%`,
+      why: up ? def.up : def.dn
+    });
+  });
+  // 시장 뉴스 헤드라인 — 감성이 강한 톱 기사
+  if (marketNewsItems && marketNewsItems.length) {
+    const strong = [...marketNewsItems].filter(x => Math.abs(x.s) >= 2).sort((a, b) => Math.abs(b.s) - Math.abs(a.s))[0];
+    if (strong) {
+      const pos = strong.s > 0;
+      cands.push({
+        cat: 'news', emoji: pos ? '📰' : '🗞️', impact: 1.2 + Math.abs(strong.s) * 0.15,
+        title: strong.title.length > 52 ? strong.title.slice(0, 52) + '…' : strong.title,
+        metric: `${strong.source || '뉴스'} · 감성 점수 ${pos ? '호재 +' : '악재 '}${strong.s}`,
+        why: pos ? '오늘 시장 분위기를 끌어올린 핵심 헤드라인입니다. 관련 섹터에 단기 모멘텀이 실릴 수 있습니다.' : '시장에 부담을 준 핵심 헤드라인입니다. 관련 섹터의 변동성 확대에 유의하세요.',
+        link: strong.link
+      });
+    }
+  }
+  // 떠오르는 업종 1위 (한국)
+  const kr = trendingCache.kr;
+  if (kr && kr.length && kr[0].changeRate >= 2) {
+    const top = kr[0];
+    cands.push({
+      cat: 'sector', emoji: '🔥', impact: 1.0 + top.changeRate / 4,
+      title: `${top.name} 업종 ${top.changeRate >= 0 ? '+' : ''}${top.changeRate.toFixed(1)}% 급등`,
+      metric: top.totalCount ? `구성 ${top.totalCount}개 중 ${top.riseCount}개 상승` : '오늘 등락률 1위 업종',
+      why: '오늘 국내 시장에서 자금이 가장 몰린 업종입니다. ' + (top.leaders && top.leaders[0] ? `${top.leaders[0].name} 등이 주도하고 있습니다.` : '관련 테마의 흐름을 살펴볼 만합니다.')
+    });
+  }
+  return cands.sort((a, b) => b.impact - a.impact);
+}
+function renderTopInsights() {
+  const el = document.getElementById('top-insights');
+  if (!el) return;
+  const cands = buildInsightCandidates();
+  if (!cands.length) {
+    el.innerHTML = '<div class="loading">현재 지수·환율·뉴스에 두드러진 변동이 없어 평온한 장세입니다. 데이터가 모이면 핵심 이슈가 표시됩니다.</div>';
+    return;
+  }
+  const top = cands.slice(0, 3);
+  const catLabel = { macro: '거시 지표', news: '뉴스', sector: '업종' };
+  let html = '<div class="ti-grid">';
+  top.forEach((c, i) => {
+    html += `<div class="ti-card${i === 0 ? ' rank1' : ''}">
+      <div class="ti-card-top">
+        <span class="ti-rank">${i === 0 ? '🥇 가장 주목' : i === 1 ? '🥈 2순위' : '🥉 3순위'}</span>
+        <span class="ti-cat ${c.cat}" style="margin-left:auto">${catLabel[c.cat]}</span>
+      </div>
+      <div class="ti-card-title"><span class="ti-emoji">${c.emoji}</span><span>${esc(c.title)}</span></div>
+      <div class="ti-metric">${esc(c.metric)}</div>
+      <div class="ti-why">💬 ${esc(c.why)}</div>
+    </div>`;
+  });
+  el.innerHTML = html + '</div>';
+  stampAsof('ti-asof');
 }
 
 // ───────────────────────── AI 설정 모달 ─────────────────────────
@@ -2996,6 +3535,8 @@ document.getElementById('refresh-btn').onclick = async () => {
   document.getElementById('updated-at').textContent = '갱신 중…';
   renderMarketNews();
   renderSymbolNews();
+  trendingCache = { kr: null, us: null };
+  renderTrendingSectors(true);
   await Promise.allSettled([renderMacro(true), (async () => renderWatchlist(true))()]);
   markUpdated();
   btn.disabled = false;
@@ -3010,6 +3551,8 @@ renderMacro();
 renderWatchlist();
 // 뉴스는 시세 요청과 겹치지 않게 약간 늦게 시작 (프록시 동시요청 제한 회피)
 setTimeout(() => { renderMarketNews(); renderSymbolNews(); }, 700);
+// 떠오르는 업종은 더 늦게 시작 (프록시 동시요청 분산)
+setTimeout(() => renderTrendingSectors(), 1500);
 markUpdated();
 </script>
 
