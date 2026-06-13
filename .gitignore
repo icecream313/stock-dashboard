@@ -1,2 +1,3 @@
 # 로컬 백업 (배포 제외)
 index.backup-*.html
+index.presplit-*.html
