@@ -722,8 +722,7 @@ const PROXY_DEFS = [
   { wrap: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) }
 ];
 // 호스트별 마지막 성공 프록시 기억 (네이버는 corsproxy가 차단하므로 corsfix(2)부터 시작)
-// news.google.com도 corsproxy가 항상 503 → allorigins(1)부터 시작해 첫 로드 지연·실패 방지
-const proxyAffinity = { 'm.stock.naver.com': 2, 'api.stock.naver.com': 2, 'ac.stock.naver.com': 2, 'news.google.com': 1 };
+const proxyAffinity = { 'm.stock.naver.com': 2, 'api.stock.naver.com': 2, 'ac.stock.naver.com': 2 };
 const CACHE_TTL = 3 * 60 * 1000; // 시세 캐시 3분
 
 // ── Claude AI 연동 (하이브리드: 키 입력 시에만 실제 LLM 호출) ──
@@ -1231,48 +1230,81 @@ function newsBadge(s) {
   return ['neutral', '중립'];
 }
 
-async function renderNews(el, rssUrl, attempt) {
+// 뉴스 데이터원: 네이버 금융 뉴스 API (구글뉴스 RSS는 무료 프록시에 차단당해 폐기)
+//  - 국내·시장: m.stock.naver.com/api/news/stock/{종목코드 또는 KOSPI}
+//  - 미국:      api.stock.naver.com/news/stock/{로이터코드}
+// 네이버 호스트는 corsfix 프록시로 안정적으로 열려 콘솔 에러 폭주·미로드 문제 해결
+function naverDateToDate(s) {
+  s = String(s || '');
+  if (s.length < 8) return new Date();
+  const dt = new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +(s.slice(8, 10) || '0'), +(s.slice(10, 12) || '0'));
+  return isNaN(dt) ? new Date() : dt;
+}
+function decodeEntities(s) {
+  return String(s || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+// 종목/지수 → 뉴스 조회 대상
+function newsTargetFor(item) {
+  if (!item) return { kind: 'market', code: 'KOSPI' };
+  if (item.isIndex) return { kind: 'market', code: item.naver || 'KOSPI' }; // 미국 지수는 국내 시장 뉴스로 대체
+  if (isKorean(item.symbol)) return { kind: 'stock', kr: true, code: item.symbol.split('.')[0] };
+  return { kind: 'stock', kr: false, reuters: item.reuters, symbol: item.symbol };
+}
+// 네이버 뉴스 원본 → 정규화 [{title,link,source,pub,s}]
+async function naverNewsRaw(target) {
+  let url;
+  if (target.kind === 'market') url = 'https://m.stock.naver.com/api/news/stock/' + (target.code || 'KOSPI');
+  else if (target.kr) url = 'https://m.stock.naver.com/api/news/stock/' + target.code;
+  else {
+    let reuters = target.reuters;
+    if (!reuters && target.symbol) { try { reuters = await resolveReuters(target.symbol); } catch (e) {} }
+    if (!reuters) throw new Error('no reuters');
+    url = 'https://api.stock.naver.com/news/stock/' + reuters;
+  }
+  const j = await fetchViaProxy(url, false, x => Array.isArray(x)); // 배열이 아니면(에러페이지 등) 다음 프록시
+  const out = [], seen = new Set();
+  (Array.isArray(j) ? j : []).forEach(g => (g.items || []).forEach(it => {
+    const id = it.id || (it.officeId + '/' + it.articleId);
+    if (seen.has(id)) return; seen.add(id);
+    const title = decodeEntities(it.titleFull || it.title || '');
+    if (!title) return;
+    out.push({
+      title,
+      link: it.mobileNewsUrl || ('https://n.news.naver.com/mnews/article/' + it.officeId + '/' + it.articleId),
+      source: it.officeName || '',
+      pub: naverDateToDate(it.datetime),
+      s: scoreNews(title)
+    });
+  }));
+  out.sort((a, b) => b.pub - a.pub);
+  return out.slice(0, 25);
+}
+
+async function loadNews(el, target, attempt) {
   el.innerHTML = '<div class="loading">불러오는 중…</div>';
   try {
-    const xml = await fetchViaProxy(rssUrl, true, isValidRss);
-    const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    const items = [...doc.querySelectorAll('item')].slice(0, 25);
-    if (!items.length) throw new Error('empty');
+    let scored = await naverNewsRaw(target);
+    if (!scored.length) throw new Error('empty');
     el.innerHTML = '';
-    let scored = items.map(it => {
-      const title = it.querySelector('title')?.textContent || '';
-      return {
-        title,
-        link: it.querySelector('link')?.textContent || '#',
-        pub: new Date(it.querySelector('pubDate')?.textContent || Date.now()),
-        source: it.querySelector('source')?.textContent || '',
-        s: scoreNews(title)
-      };
-    });
-    // 신뢰 소스 필터 (토글 ON & 필터 후 1건 이상일 때만 적용 — 0건이면 전체 표시)
+    // 신뢰 소스 필터 (토글 ON & 필터 후 1건 이상일 때만 적용)
     let filteredOut = 0;
     if (newsTrustedOnly) {
       const kept = scored.filter(x => isTrustedSource(x.source, x.title));
       if (kept.length) { filteredOut = scored.length - kept.length; scored = kept; }
     }
-    // 투자 분위기 요약 (점수 합산 공개)
-    const nPos = scored.filter(x => x.s > 0).length;
-    const nNeg = scored.filter(x => x.s < 0).length;
-    const nNeu = scored.length - nPos - nNeg;
+    const nPos = scored.filter(x => x.s > 0).length, nNeg = scored.filter(x => x.s < 0).length, nNeu = scored.length - nPos - nNeg;
     const net = scored.reduce((a, x) => a + x.s, 0);
     const netCls = net > 0 ? 'good' : net < 0 ? 'bad' : 'mid';
     const sum = document.createElement('div');
     sum.className = 'news-senti';
     sum.innerHTML = `🧮 투자 분위기: <b class="good">호재 ${nPos}</b> · <b style="color:var(--muted)">중립 ${nNeu}</b> · <b class="bad">악재 ${nNeg}</b>
       — 합산 점수 <b class="${netCls}">${net >= 0 ? '+' : ''}${net}</b>
-      <span class="senti-note">제목 키워드 기반 자동 채점(참고용) · 점수는 기사별 배지에 표시${newsTrustedOnly ? (filteredOut ? ` · 🛡️ 신뢰 소스만 표시 (${filteredOut}건 숨김)` : ' · 🛡️ 신뢰 소스만') : ' · 전체 소스 표시'}</span>`;
+      <span class="senti-note">제목 키워드 기반 자동 채점(참고용) · 네이버 금융 뉴스${newsTrustedOnly ? (filteredOut ? ` · 🛡️ 신뢰 소스만 (${filteredOut}건 숨김)` : ' · 🛡️ 신뢰 소스만') : ' · 전체 소스'}</span>`;
     el.appendChild(sum);
     scored.forEach(x => {
       const a = document.createElement('a');
       a.className = 'news-item';
-      a.href = x.link;
-      a.target = '_blank';
-      a.rel = 'noopener';
+      a.href = x.link; a.target = '_blank'; a.rel = 'noopener';
       const [bCls, bTxt] = newsBadge(x.s);
       a.innerHTML = `<div class="title"><span class="sig-badge ${bCls} news-score"></span><span class="tx"></span></div><div class="meta"></div>`;
       a.querySelector('.news-score').textContent = bTxt;
@@ -1280,21 +1312,15 @@ async function renderNews(el, rssUrl, attempt) {
       a.querySelector('.meta').textContent = `${x.source} · ${relTime(x.pub)}`;
       el.appendChild(a);
     });
-    // 시장 뉴스 감성을 메인 인포그래픽에 반영
     if (el.id === 'market-news') { marketNewsNet = net; if (typeof renderMainInfographic === 'function') renderMainInfographic(); }
   } catch (e) {
     if (!attempt) {
-      // 일시적 프록시 차단(요청 폭주) 대비 한 번 재시도
       el.innerHTML = '<div class="loading">잠시 후 다시 시도합니다…</div>';
-      setTimeout(() => renderNews(el, rssUrl, 1), 3000);
+      setTimeout(() => loadNews(el, target, 1), 2500);
     } else {
       el.innerHTML = '<div class="loading">뉴스를 불러오지 못했습니다. 새로고침해 보세요.</div>';
     }
   }
-}
-
-function gnewsSearch(q) {
-  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
 }
 
 // 뉴스 신뢰 소스 필터 토글
@@ -1310,21 +1336,17 @@ newsFilterBtn.onclick = () => {
   syncNewsFilterBtn();
   renderMarketNews();
   renderSymbolNews();
-  // 상세 모달이 열려 있으면 모달 뉴스도 갱신
-  if (detailItem) renderNews(document.getElementById('tab-news'), gnewsSearch((detailItem.name || detailItem.symbol) + ' when:14d'));
+  if (detailItem) loadNews(document.getElementById('tab-news'), newsTargetFor(detailItem));
 };
 syncNewsFilterBtn();
 
 function renderMarketNews() {
-  // 검색 쿼리형 RSS는 프록시에서 자주 실패해 경제 토픽 헤드라인 피드로 교체
-  renderNews(document.getElementById('market-news'),
-    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko');
+  loadNews(document.getElementById('market-news'), { kind: 'market', code: 'KOSPI' });
 }
 
 function renderSymbolNews() {
   document.getElementById('news-symbol-label').textContent = selected.name || selected.symbol;
-  const q = (selected.name || selected.symbol) + ' 주가 when:7d';
-  renderNews(document.getElementById('symbol-news'), gnewsSearch(q));
+  loadNews(document.getElementById('symbol-news'), newsTargetFor(selected));
 }
 
 // ───────────────────────── 종목 선택 ─────────────────────────
@@ -1544,7 +1566,7 @@ function openDetail(item) {
   document.getElementById('tab-overview').innerHTML = '<div class="d-loading">기업 정보를 불러오는 중…</div>';
   document.getElementById('tab-fund').innerHTML = '<div class="d-loading">불러오는 중…</div>';
   document.getElementById('tab-future').innerHTML = '<div class="d-loading">불러오는 중…</div>';
-  renderNews(document.getElementById('tab-news'), gnewsSearch((item.name || item.symbol) + ' when:14d'));
+  loadNews(document.getElementById('tab-news'), newsTargetFor(item));
   renderTechTab(item); // 기술 분석은 야후 데이터만 쓰므로 독립적으로 로드
   // 재무 데이터 로드 (네이버)
   detailData = null;
@@ -1595,7 +1617,7 @@ function openIndexDetail(item) {
   } else { priceEl.textContent = ''; dchg.textContent = ''; }
   switchTab('overview');
   document.getElementById('tab-overview').innerHTML = '<div class="d-loading">지수 정보를 불러오는 중…</div>';
-  renderNews(document.getElementById('tab-news'), gnewsSearch(item.name + ' 증시 when:3d'));
+  loadNews(document.getElementById('tab-news'), newsTargetFor(item));
   renderTechTab(item);          // 차트 + 과열 분석 (야후 데이터)
   renderIndexOverview(item);    // 지표 + 시장폭 + 수급
 }
@@ -2574,14 +2596,8 @@ function renderFutureTab(d, item) {
 
 // ── ⓪ 종합 평가 탭 (재무·기술·미시·뉴스·업종·거시 6항목 + Claude 종합 의견) ──
 async function fetchNewsScored(item) {
-  const xml = await fetchViaProxy(gnewsSearch((item.name || item.symbol) + ' 주가 when:7d'), true, isValidRss);
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
-  const items = [...doc.querySelectorAll('item')].slice(0, 25);
-  if (!items.length) return null;
-  let scored = items.map(it => {
-    const title = it.querySelector('title')?.textContent || '';
-    return { title, source: it.querySelector('source')?.textContent || '', s: scoreNews(title) };
-  });
+  let scored = await naverNewsRaw(newsTargetFor(item)); // [{title,source,s,...}]
+  if (!scored.length) return null;
   if (newsTrustedOnly) { const k = scored.filter(x => isTrustedSource(x.source, x.title)); if (k.length) scored = k; }
   return scored;
 }
