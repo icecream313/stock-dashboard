@@ -1484,6 +1484,7 @@ async function loadDetailData(item) {
 
 // ── 파싱 헬퍼 ──
 function infoVal(infos, key) {
+  if (!Array.isArray(infos)) return null;
   const f = infos.find(x => x.key === key);
   return f ? f.value : null;
 }
@@ -2125,7 +2126,8 @@ function drawTechChart() {
     timeScale: { borderColor: '#2a2e3a' },
     rightPriceScale: { borderColor: '#2a2e3a' },
     localization: {
-      priceFormatter: v => isKorean(item.symbol) ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(2)
+      // 종목(fmt 없음)·지수/지표(fmt 보유) 모두 올바른 단위로 — 지수=숫자, 환율=₩, 금리=%
+      priceFormatter: v => fmtPrice(v, item.symbol, item.fmt)
     }
   });
   const candle = chart.addCandlestickSeries({
@@ -2354,9 +2356,10 @@ function overheatSnapshot(closes) {
       rsiRaw: rsi[t],
       rsiPct: percentileRank(rsiWin, rsi[t]),
       dispRaw: disp[t],
-      dispPct: percentileRank(dispWin, disp[t]),
+      // 200일선 워밍업(앞 199봉 null) 탓에 유효 표본이 30 미만이면 이격도 백분위는 보류
+      dispPct: dispWin.filter(v => v != null).length >= 30 ? percentileRank(dispWin, disp[t]) : null,
       pos52w: hi === lo ? 50 : (closes[t] - lo) / (hi - lo) * 100,
-      z: rollingZ(closes.slice(Math.max(0, t - Math.min(W, 200) + 1), t + 1), closes[t])
+      z: rollingZ(closes.slice(from, t + 1), closes[t]) // RSI 백분위와 동일 룩백 윈도우 사용
     };
   }
   return { metrics, rsiRaw: rsi[t], dispRaw: disp[t] };
@@ -2393,7 +2396,8 @@ function forwardReturnStats(closes) {
     const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
     const med = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
     const win = a => a.length ? a.filter(v => v > 0).length / a.length * 100 : null;
-    return { n: arr.length, mean1: mean(f1), med1: med(f1), win1: win(f1), mean3: mean(f3), med3: med(f3), win3: win(f3) };
+    // n=1개월 표본, n3=3개월 표본(끝쪽 시점은 t+63 미확보로 적음 → 별도 집계해 정직하게 표기)
+    return { n: f1.length, n3: f3.length, mean1: mean(f1), med1: med(f1), win1: win(f1), mean3: mean(f3), med3: med(f3), win3: win(f3) };
   };
   return { hot: agg(hot), normal: agg(normal) };
 }
@@ -2469,7 +2473,7 @@ function renderOverheatBlock(bars, item) {
     html += `<div class="oh-fwd">
       <b>📅 과거에 지금처럼 과열이었을 때, 이후 수익은?</b><br>
       RSI가 1년 백분위 90 이상이던 과거 <b>${h.n}건</b>${warn} 이후 →
-      <b>1개월</b> 평균 <b class="${cls(h.mean1)}">${pc(h.mean1)}</b> (중앙값 ${pc(h.med1)}, 상승확률 ${h.win1 != null ? h.win1.toFixed(0) + '%' : '—'})${h.mean3 != null ? `, <b>3개월</b> 평균 <b class="${cls(h.mean3)}">${pc(h.mean3)}</b> (상승확률 ${h.win3 != null ? h.win3.toFixed(0) + '%' : '—'})` : ''}.
+      <b>1개월</b> 평균 <b class="${cls(h.mean1)}">${pc(h.mean1)}</b> (중앙값 ${pc(h.med1)}, 상승확률 ${h.win1 != null ? h.win1.toFixed(0) + '%' : '—'})${(h.n3 >= 30 && h.mean3 != null) ? `, <b>3개월</b> 평균 <b class="${cls(h.mean3)}">${pc(h.mean3)}</b> (상승확률 ${h.win3 != null ? h.win3.toFixed(0) + '%' : '—'}, ${h.n3}건)` : ''}.
       ${fr.normal ? `<span style="color:var(--muted)">— 평상시 1개월 평균은 ${pc(fr.normal.mean1)}입니다.</span>` : ''}
       <div class="oh-metric-note" style="margin-top:6px">⚠️ 과열은 '되돌림 확률이 통계적으로 높아진 상태'일 뿐 즉시 하락 신호가 아닙니다. 과거 통계가 미래를 보장하지 않습니다.</div>
     </div>`;
@@ -2696,9 +2700,9 @@ async function renderSummaryTab(d, item) {
     if (techState && techState.item === item && techState.bars && techState.bars.length >= 30) { bars = techState.bars; break; }
     await new Promise(r => setTimeout(r, 400));
   }
-  if (!bars) { // 폴링 실패 시 직접 로드 (캐시 활용)
+  if (!bars) { // 폴링 실패 시 직접 로드 (캐시 활용 · 기술탭과 동일하게 5년)
     try {
-      const r = await fetchChart(item.symbol, '1y', '1d');
+      const r = await fetchChart(item.symbol, '5y', '1d');
       const q = r.indicators.quote[0];
       bars = (r.timestamp || []).map((t, i) => ({ time: t, open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i], volume: (q.volume && q.volume[i]) || 0 })).filter(b => b.close != null && b.open != null && b.high != null && b.low != null);
       if (bars.length < 30) bars = null;
