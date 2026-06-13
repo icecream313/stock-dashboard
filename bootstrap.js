@@ -56,6 +56,14 @@ function syncAiButtons() {
   });
 }
 
+// 접이식 섹션 토글 (제목 클릭 → 펼침/접힘)
+document.addEventListener('click', e => {
+  const h = e.target.closest('.toggle-h');
+  if (!h) return;
+  const sec = h.closest('.section');
+  if (sec) sec.classList.toggle('collapsed');
+});
+
 // ───────────────────────── 초기화 ─────────────────────────
 document.getElementById('today').textContent =
   new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });

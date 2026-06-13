@@ -48,6 +48,14 @@
     font-size: 0.85rem;
   }
   header .refresh:hover { border-color: var(--accent); }
+  /* 중앙 정렬 콘텐츠 컬럼 — 넓은 화면에서 좌우로 퍼지지 않게 */
+  .page { max-width: 1100px; margin: 0 auto; }
+  /* 접이식 섹션 (보조 블록 기본 접힘) */
+  .toggle-h { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 7px; }
+  .toggle-h .chev { font-size: 0.8em; color: var(--muted); transition: transform 0.18s; }
+  .section.collapsed .collapse-body { display: none; }
+  .section.collapsed .toggle-h .chev { transform: rotate(-90deg); }
+  .section.collapsed .ts-toggle, .section.collapsed #news-filter-toggle { display: none; }
   .section { padding: 0 20px; margin-top: 22px; }
   .section h2 {
     font-size: 1rem;

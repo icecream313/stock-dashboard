@@ -16,6 +16,8 @@
 </head>
 <body>
 
+<main class="page">
+
 <header>
   <h1>📈 나의 주식 대시보드</h1>
   <span class="date" id="today"></span>
@@ -59,16 +61,18 @@
 </div>
 
 <!-- 떠오르는 업종 (거시) -->
-<div class="section" id="trending-section">
+<div class="section collapsed" id="trending-section">
   <div class="wl-head">
-    <h2>🔥 떠오르는 업종</h2>
+    <h2 class="toggle-h"><span class="chev">▾</span>🔥 떠오르는 업종</h2>
     <div class="ts-toggle" id="ts-toggle">
       <button data-mk="kr" class="active">🇰🇷 한국</button>
       <button data-mk="us">🇺🇸 미국 섹터</button>
     </div>
     <span class="block-asof" id="ts-asof"></span>
   </div>
-  <div id="trending-sectors"><div class="loading">업종별 자금 흐름을 분석하는 중…</div></div>
+  <div class="collapse-body">
+    <div id="trending-sectors"><div class="loading">업종별 자금 흐름을 분석하는 중…</div></div>
+  </div>
 </div>
 
 <!-- ════════ 🎯 미시 관점 — 내 종목 ════════ -->
@@ -113,10 +117,14 @@
 </div>
 
 <!-- 선택 종목 뉴스 (미시) -->
-<div class="section">
-  <h2 style="font-size:1rem;color:var(--muted);margin-bottom:10px;letter-spacing:0.04em;">📰 선택 종목 뉴스 — <span id="news-symbol-label"></span></h2>
-  <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
+<div class="section collapsed">
+  <h2 class="toggle-h" style="font-size:1rem;color:var(--muted);margin-bottom:10px;letter-spacing:0.04em;"><span class="chev">▾</span>📰 선택 종목 뉴스 — <span id="news-symbol-label"></span></h2>
+  <div class="collapse-body">
+    <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
+  </div>
 </div>
+
+</main>
 
 <!-- AI 설정 모달 -->
 <div class="detail-overlay" id="settings-overlay">
