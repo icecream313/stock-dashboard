@@ -4,13 +4,17 @@ const NV_TTL = 6 * 60 * 60 * 1000; // 재무 데이터 캐시 6시간 (프록시
 
 async function fetchNaver(url) {
   const key = 'nv:' + url;
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  if (cached && cached.d && Date.now() - cached.t < NV_TTL) return cached.d;
   try {
-    const c = JSON.parse(localStorage.getItem(key));
-    if (c && Date.now() - c.t < NV_TTL) return c.d;
-  } catch (e) {}
-  const j = await fetchViaProxy(url, false);
-  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: j })); } catch (e) {}
-  return j;
+    const j = await fetchViaProxy(url, false);
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: j })); } catch (e) {}
+    return j;
+  } catch (e) {
+    if (cached && cached.d) { noteStale(cached.t); return cached.d; } // 실패 시 마지막 캐시
+    throw e;
+  }
 }
 
 // 미국 티커 → 네이버 로이터 코드 (.O 나스닥 / .N NYSE / .A AMEX)
@@ -114,11 +118,19 @@ function setTabsVisible(keys) {
     b.style.display = keys.includes(b.dataset.tab) ? '' : 'none');
 }
 
+let lastFocusEl = null; // 모달 닫을 때 포커스 복원용
+function focusModalSheet() {
+  lastFocusEl = document.activeElement;
+  const sheet = overlay.querySelector('.detail-sheet');
+  setTimeout(() => { try { sheet.focus(); } catch (e) {} }, 50);
+}
+
 function openDetail(item) {
   if (item.isIndex) return openIndexDetail(item);
   detailItem = item;
   setTabsVisible(['summary', 'overview', 'fund', 'tech', 'future', 'news']); // 종목: 전체 탭
   overlay.classList.add('open');
+  focusModalSheet();
   document.body.style.overflow = 'hidden';
   // 헤더
   document.getElementById('d-name').textContent = item.name || item.symbol;
@@ -169,6 +181,7 @@ function closeDetail() {
   detailItem = null;
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+  if (lastFocusEl && lastFocusEl.offsetParent !== null) { try { lastFocusEl.focus(); } catch (e) {} }
 }
 
 // ── 지수/거시지표 상세 (종목 모달 재사용, 탭 = 개요·기술·뉴스) ──
@@ -177,6 +190,7 @@ function openIndexDetail(item) {
   detailData = null;
   setTabsVisible(['overview', 'tech', 'news']);
   overlay.classList.add('open');
+  focusModalSheet();
   document.body.style.overflow = 'hidden';
   document.getElementById('d-logo').classList.add('hidden');
   document.getElementById('d-name').textContent = item.name;
@@ -256,11 +270,24 @@ async function renderIndexOverview(item) {
 }
 document.getElementById('d-close').onclick = closeDetail;
 overlay.addEventListener('click', e => { if (e.target === overlay) closeDetail(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeDetail(); });
+document.addEventListener('keydown', e => {
+  if (!overlay.classList.contains('open')) return;
+  if (e.key === 'Escape') { closeDetail(); return; }
+  if (e.key === 'Tab') { // 포커스 트랩 — 모달 밖으로 못 나가게
+    const list = [...overlay.querySelectorAll('button, [tabindex="0"], input, select, textarea, a[href]')].filter(el => el.offsetParent !== null);
+    if (!list.length) return;
+    const first = list[0], last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
 
 function switchTab(name) {
-  document.querySelectorAll('#detail-tabs button').forEach(b =>
-    b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('#detail-tabs button').forEach(b => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
   document.querySelectorAll('.d-tab').forEach(t =>
     t.hidden = (t.id !== 'tab-' + name));
   // 숨겨진 상태에선 캔버스 크기가 0이라, 해당 탭이 보일 때 차트를 다시 그린다
@@ -765,15 +792,49 @@ function drawTechChart() {
   candle.setData(bars.slice(start).map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
   const vol = chart.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });
   chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-  vol.setData(bars.slice(start).map(b => ({
-    time: b.time, value: b.volume,
-    color: b.close >= b.open ? 'rgba(240,68,82,0.4)' : 'rgba(49,130,246,0.4)'
-  })));
+  // 거래량 급증일(직전 20봉 평균의 150%↑) 진하게 강조 — 추세 신뢰도 시각화
+  const volAvgAt = i => { const s = Math.max(0, i - 19); const sl = bars.slice(s, i + 1).map(b => b.volume || 0); return sl.reduce((a, b) => a + b, 0) / (sl.length || 1); };
+  vol.setData(bars.slice(start).map((b, idx) => {
+    const i = start + idx;
+    const spike = (b.volume || 0) >= volAvgAt(i) * 1.5;
+    const base = b.close >= b.open ? '240,68,82' : '49,130,246';
+    return { time: b.time, value: b.volume, color: `rgba(${base},${spike ? 0.85 : 0.4})` };
+  }));
   maSet.forEach(([p, color]) => {
     const data = maArr(p);
     const s = chart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData(bars.map((b, i) => ({ time: b.time, value: data[i] })).slice(start).filter(pt => pt.value != null));
   });
+  // 골든/데드크로스 마커 (단기선 vs 중기선 교차)
+  const p1 = maArr(maSet[0][0]), p2 = maArr(maSet[1][0]);
+  const markers = [];
+  for (let i = Math.max(start, 1); i < bars.length; i++) {
+    if (p1[i] == null || p2[i] == null || p1[i - 1] == null || p2[i - 1] == null) continue;
+    if (p1[i - 1] <= p2[i - 1] && p1[i] > p2[i]) markers.push({ time: bars[i].time, position: 'belowBar', color: '#2ecc71', shape: 'arrowUp', text: 'G' });
+    else if (p1[i - 1] >= p2[i - 1] && p1[i] < p2[i]) markers.push({ time: bars[i].time, position: 'aboveBar', color: '#e74c3c', shape: 'arrowDown', text: 'D' });
+  }
+  if (markers.length) candle.setMarkers(markers);
+  // 52주 신고가/신저가 가격선 (일봉 기준 최근 252봉)
+  const win52 = techState.bars.slice(-252);
+  if (win52.length > 20) {
+    const full = techState.bars.length >= 252; // 1년치 데이터 있으면 '52주', 아니면 '기간'(상장 직후 등)
+    const hi52 = Math.max(...win52.map(b => b.high)), lo52 = Math.min(...win52.map(b => b.low));
+    candle.createPriceLine({ price: hi52, color: 'rgba(240,68,82,0.45)', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: full ? '52주 고' : '기간 고' });
+    candle.createPriceLine({ price: lo52, color: 'rgba(58,134,255,0.45)', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: full ? '52주 저' : '기간 저' });
+  }
+  // 차트 우상단 배지: 거래량 배수 · 신호 종합
+  try {
+    const sigs = computeSignals(techState.bars);
+    const buy = sigs.filter(s => s.grade === 'buy').length, sell = sigs.filter(s => s.grade === 'sell').length;
+    const verdict = buy >= sell + 2 ? 'buy' : sell >= buy + 2 ? 'sell' : 'neutral';
+    const dv = techState.bars.map(b => b.volume || 0), last20 = dv.slice(-20);
+    const vAvg = last20.reduce((a, b) => a + b, 0) / (last20.length || 1);
+    const vRatio = vAvg ? dv[dv.length - 1] / vAvg : 1;
+    const bd = document.createElement('div');
+    bd.className = 'chart-badges';
+    bd.innerHTML = `<div class="chart-badge volume">📊 거래량 ${Math.round(vRatio * 100)}%</div><div class="chart-badge signal-${verdict}">신호 ${verdict === 'buy' ? '매수' : verdict === 'sell' ? '매도' : '중립'}</div>`;
+    box.appendChild(bd);
+  } catch (e) {}
   chart.timeScale().fitContent();
 }
 
@@ -818,7 +879,9 @@ function stochasticK(bars, period, smooth) {
   return kVals.reduce((a, b) => a + b, 0) / kVals.length; // 슬로우 %K (3일 평활)
 }
 
-function computeSignals(bars) {
+function computeSignals(bars, sym) {
+  // 가격 표시용 심볼: 인자 우선, 없으면 techState(기술탭) 폴백 — 종합탭 폴백 경로에서 techState=null이어도 안전
+  const symbol = sym || (techState && techState.item && techState.item.symbol) || '';
   const closes = bars.map(b => b.close);
   const vols = bars.map(b => b.volume);
   const last = closes.length - 1;
@@ -861,7 +924,7 @@ function computeSignals(bars) {
     sigs.push({
       grade: m5 > m20 ? 'buy' : 'sell',
       title: `단기 추세: 5일선이 20일선 ${m5 > m20 ? '위' : '아래'}`,
-      desc: `5일 이동평균 ${fmtPrice(m5, techState.item.symbol)} vs 20일선 ${fmtPrice(m20, techState.item.symbol)}.${cross} 단기선이 위면 상승 추세 지속으로 봅니다.`
+      desc: `5일 이동평균 ${fmtPrice(m5, symbol)} vs 20일선 ${fmtPrice(m20, symbol)}.${cross} 단기선이 위면 상승 추세 지속으로 봅니다.`
     });
   }
 
@@ -1301,6 +1364,7 @@ function paintSummary(el, d, item, parts, flags) {
     html += `</div>`;
   });
   html += `<div id="sum-ai-zone" style="margin-top:8px"></div>`;
+  html += `<div id="sum-chat-zone" style="margin-top:14px"></div>`;
   html += `<div class="disclaimer">⚠️ 종합·항목별 점수는 공개 데이터를 규칙으로 계산한 <b>참고용 지표</b>이며 투자 권유가 아닙니다. 업종·거시 항목은 당일·단기 데이터 비중이 커 변동이 큽니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
   el.innerHTML = html;
   el.querySelectorAll('.sum-dim.expandable').forEach(dimEl => {
@@ -1311,13 +1375,80 @@ function paintSummary(el, d, item, parts, flags) {
     });
   });
   if (comp) renderAiZone(item, d, parts, comp);
+  // 대화형 질문은 최종 렌더 시에만 (진행 중 입력이 초기화되지 않게)
+  if (comp && !flags.techPending && !flags.newsPending) renderStockChat(item, d, parts, comp);
+}
+
+// ── 종목 상세 대화형 AI 질의 ──
+let stockChat = null; // { symbol, history:[{role,content}] }
+function buildStockChatContext(item, d, parts, comp) {
+  const lines = SCORE_DIMS.map(dm => {
+    const p = parts[dm.key];
+    return `- ${dm.label}: ${p ? p.score + '점 — ' + p.summary : '데이터 없음'}`;
+  }).join('\n');
+  const cur = quoteCache[item.symbol] && quoteCache[item.symbol].price;
+  const target = d && d.consensus && numOf(d.consensus.priceTargetMean);
+  const news = (typeof marketNewsItems !== 'undefined' && marketNewsItems ? marketNewsItems : []).slice(0, 3).map(n => n.title).join(' | ');
+  return `[${item.name || item.symbol} (${item.symbol}) 데이터]\n종합점수: ${comp ? comp.score + '/100' : '계산중'}\n${lines}` +
+    `${cur ? '\n현재가: ' + fmtPrice(cur, item.symbol) : ''}${target ? '\n애널리스트 평균 목표주가: ' + fmtPrice(target, item.symbol) : ''}` +
+    `${news ? '\n최근 시장 뉴스: ' + news : ''}`;
+}
+function renderStockChat(item, d, parts, comp) {
+  const zone = document.getElementById('sum-chat-zone');
+  if (!zone) return;
+  const hasKey = hasClaudeKey();
+  zone.innerHTML = `<div style="font-size:0.86rem;font-weight:700;margin-bottom:8px">💬 이 종목에 대해 자유롭게 질문하세요</div>
+    <div class="chat-box">
+      <div class="chat-messages" id="sum-chat-msgs"></div>
+      <div class="chat-input-row">
+        <textarea id="sum-chat-input" placeholder="${hasKey ? "예: 최근 오른 이유는? · 가장 큰 리스크는? · 목표주가까지 여력은?" : 'AI 설정에서 Claude API 키를 입력하면 질문할 수 있습니다'}" ${hasKey ? '' : 'disabled'} aria-label="종목 질문 입력"></textarea>
+        <button class="chat-send-btn" id="sum-chat-send" ${hasKey ? '' : 'disabled'}>✉️ 질문</button>
+      </div>
+      ${hasKey ? '' : '<div class="hint" style="margin-top:8px;font-size:0.74rem">🔑 우측 상단 ⚙️ AI 설정에서 키를 넣으면 활성화됩니다.</div>'}
+    </div>`;
+  // 세션 이어그리기 (같은 종목이면 기존 대화 복원)
+  if (!stockChat || stockChat.symbol !== item.symbol) stockChat = { symbol: item.symbol, history: [] };
+  const msgs = zone.querySelector('#sum-chat-msgs');
+  stockChat.history.forEach(m => { const dv = document.createElement('div'); dv.className = 'chat-msg ' + m.role; dv.textContent = m.content; msgs.appendChild(dv); });
+  if (!hasKey) return;
+  const input = zone.querySelector('#sum-chat-input'), btn = zone.querySelector('#sum-chat-send');
+  const send = () => handleStockChat(item, d, parts, comp, input, btn, msgs);
+  btn.onclick = send;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !btn.disabled) { e.preventDefault(); send(); } });
+}
+async function handleStockChat(item, d, parts, comp, input, btn, msgs) {
+  const q = input.value.trim();
+  if (!q) return;
+  const u = document.createElement('div'); u.className = 'chat-msg user'; u.textContent = q; msgs.appendChild(u);
+  input.value = ''; msgs.scrollTop = msgs.scrollHeight;
+  stockChat.history.push({ role: 'user', content: q });
+  if (stockChat.history.length > 8) stockChat.history = stockChat.history.slice(-8);
+  btn.disabled = true; btn.textContent = '🤖 …';
+  const a = document.createElement('div'); a.className = 'chat-msg assistant typing'; msgs.appendChild(a); msgs.scrollTop = msgs.scrollHeight;
+  const sys = '당신은 한국어로 답하는 신중한 주식 애널리스트입니다. 제공된 정량 데이터만 근거로 답하고, 단정적 매매 단언은 피하며 리스크와 불확실성을 함께 짚습니다. 투자 권유가 아닌 참고 의견입니다. 3~5문장 이내로 답하세요.';
+  const ctx = buildStockChatContext(item, d, parts, comp);
+  // 멀티턴: 직전 대화 + 마지막 질문에 컨텍스트 부착
+  const msgsApi = stockChat.history.map((m, i) =>
+    i === stockChat.history.length - 1 ? { role: 'user', content: ctx + '\n\n질문: ' + m.content } : m);
+  try {
+    const reply = await claudeChat(sys, msgsApi);
+    if (detailItem !== item) return;
+    a.classList.remove('typing');
+    a.innerHTML = esc(reply).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    stockChat.history.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    a.classList.remove('typing');
+    a.innerHTML = '<span class="bad">❌ ' + esc(e.message === 'NO_KEY' ? 'AI 설정에서 키를 입력하세요' : e.message) + '</span>';
+  } finally {
+    btn.disabled = false; btn.textContent = '✉️ 질문'; msgs.scrollTop = msgs.scrollHeight;
+  }
 }
 
 async function renderSummaryTab(d, item) {
   const el = document.getElementById('tab-summary');
   const compute = (bars, newsScored) => ({
     finance: scoreFinanceVal(d, item),
-    technical: bars ? scoreTechnicalVal(bars) : null,
+    technical: bars ? scoreTechnicalVal(bars, item) : null,
     micro: scoreMicroVal(d),
     news: newsScored ? scoreNewsVal(newsScored) : null,
     industry: scoreIndustryVal(d, item),

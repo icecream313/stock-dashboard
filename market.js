@@ -7,7 +7,11 @@ async function renderMacro(noCache) {
       chip.className = 'macro-chip clickable';
       chip.id = 'macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, '');
       chip.innerHTML = `<div class="label">${m.label}</div><div class="price">…</div><div class="chg flat">—</div>`;
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('aria-label', m.label + ' 상세');
       chip.onclick = () => openDetail(macroItem(m));
+      chip.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(macroItem(m)); } };
       strip.appendChild(chip);
     });
   }
@@ -51,15 +55,25 @@ function categoryOf(symbol) {
 function buildCard(item) {
   const card = document.createElement('div');
   card.className = 'card' + (item.symbol === selected.symbol ? ' selected' : '');
+  // role=button은 내부에 삭제/목표가 버튼·입력이 중첩되어 ARIA 위반 → 부여하지 않고
+  // tabindex+keydown으로 키보드 열기만 지원 (포커스 링은 [tabindex]:focus-visible로 처리)
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('aria-label', (item.name || item.symbol) + ' — Enter로 상세 열기');
+  const tp = getWatchlistAlerts()[item.symbol] || '';
   card.innerHTML = `
-    <button class="del" title="삭제">✕</button>
+    <button class="del" title="삭제" aria-label="${esc(item.name || item.symbol)} 삭제">✕</button>
     <div class="name">${esc(item.name || item.symbol)}</div>
     <div class="sym">${esc(item.symbol)}</div>
     <div class="price">…</div>
     <div class="chg flat">—</div>
     <div class="rets"></div>
     <div class="holding-line" hidden></div>
-    <canvas></canvas>`;
+    <canvas></canvas>
+    <div class="tp-row">
+      <span class="tp-label">🔔 목표가</span>
+      <input class="tp-input" type="number" min="0" step="any" placeholder="알림 받을 가격" value="${tp}" aria-label="${esc(item.name || item.symbol)} 목표가" title="현재가가 목표가에 도달하면 브라우저 알림">
+      ${tp ? '<button class="tp-clear" title="목표가 삭제" aria-label="목표가 삭제">✕</button>' : ''}
+    </div>`;
   card.querySelector('.del').onclick = e => {
     e.stopPropagation();
     if (!confirm(`'${item.name || item.symbol}' 종목을 삭제할까요?`)) return;
@@ -68,7 +82,29 @@ function buildCard(item) {
     if (selected.symbol === item.symbol && watchlist.length) selectStock(watchlist[0]);
     renderWatchlist();
   };
-  card.onclick = () => { selectStock(item); openDetail(item); };
+  // 목표가 입력 (카드 클릭/키보드와 충돌 방지)
+  const tpInput = card.querySelector('.tp-input');
+  tpInput.onclick = e => e.stopPropagation();
+  tpInput.onkeydown = e => e.stopPropagation();
+  tpInput.onchange = () => {
+    const v = parseFloat(tpInput.value);
+    const a = getWatchlistAlerts();
+    if (!v || v <= 0) delete a[item.symbol]; else a[item.symbol] = v;
+    try { localStorage.setItem('watchlist-alerts', JSON.stringify(a)); } catch (e) {}
+    renderWatchlist();
+  };
+  const tpClear = card.querySelector('.tp-clear');
+  if (tpClear) tpClear.onclick = e => {
+    e.stopPropagation();
+    const a = getWatchlistAlerts(); delete a[item.symbol];
+    try { localStorage.setItem('watchlist-alerts', JSON.stringify(a)); } catch (x) {}
+    renderWatchlist();
+  };
+  const open = () => { selectStock(item); openDetail(item); };
+  card.onclick = open;
+  card.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target === card) { e.preventDefault(); open(); }
+  });
   card.dataset.symbol = item.symbol;
   return card;
 }
@@ -118,7 +154,12 @@ function renderWatchlistStrip() {
       chgHtml = `<div class="wc-chg ${c.cls}">${c.text}</div>`;
     }
     chip.innerHTML = `<div class="wc-name">${esc(item.name || item.symbol)}</div><div class="wc-price">${priceTxt}</div>${chgHtml}`;
-    chip.onclick = () => { selectStock(item); openDetail(item); };
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('tabindex', '0');
+    chip.setAttribute('aria-label', (item.name || item.symbol) + ' 상세 보기');
+    const open = () => { selectStock(item); openDetail(item); };
+    chip.onclick = open;
+    chip.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
     strip.appendChild(chip);
   });
 }
@@ -139,7 +180,9 @@ async function fillCards(noCache) {
       card.querySelector('.price').textContent = '—';
       const chg = card.querySelector('.chg');
       chg.className = 'err';
-      chg.textContent = '데이터를 불러오지 못했습니다';
+      chg.innerHTML = '데이터 미로드 <button class="retry-inline" aria-label="시세 다시 불러오기">다시 시도</button>';
+      const rb = chg.querySelector('.retry-inline');
+      if (rb) rb.onclick = e => { e.stopPropagation(); fillCards(true); };
       return;
     }
     const price = closes[closes.length - 1];
@@ -173,6 +216,7 @@ async function fillCards(noCache) {
   sortCards();
   updatePortfolio();
   renderWatchlistStrip(); // 시세 채워진 뒤 칩 스트립 갱신
+  checkPriceAlerts();      // 목표가 도달 알림 체크
   if (typeof renderMainInfographic === 'function') renderMainInfographic();
 }
 
@@ -194,8 +238,93 @@ function fillHoldingLine(card, item) {
   line.innerHTML = `💼 ${item.qty.toLocaleString()}주 보유 · 손익 <b class="${cls}">${pl.diff >= 0 ? '+' : ''}${fmtPrice(Math.abs(pl.diff), item.symbol).replace(/^([₩$])/, pl.diff < 0 ? '-$1' : '$1')} (${pl.pct >= 0 ? '+' : ''}${pl.pct.toFixed(1)}%)</b>`;
 }
 
+// ── 핵심 숫자 히어로 (항상 표시: 보유 있으면 평가금액·손익, 없으면 관심종목 당일 요약) ──
+function updateHero() {
+  const card = document.getElementById('hero-card');
+  if (!card) return;
+  const won = v => '₩' + Math.round(Math.abs(v)).toLocaleString('ko-KR');
+  const holdings = watchlist.filter(w => w.qty && w.avg && quoteCache[w.symbol] && quoteCache[w.symbol].price);
+  const needFx = holdings.some(w => !isKorean(w.symbol));
+  if (holdings.length && (!needFx || usdkrw)) {
+    let cost = 0, value = 0, daily = 0;
+    holdings.forEach(w => {
+      const pl = holdingPL(w), q = quoteCache[w.symbol], fx = isKorean(w.symbol) ? 1 : usdkrw;
+      cost += pl.cost * fx; value += pl.value * fx;
+      if (q.prev != null) daily += (q.price - q.prev) * w.qty * fx;
+    });
+    const diff = value - cost, pct = cost ? diff / cost * 100 : 0;
+    const dcls = daily > 0 ? 'up' : daily < 0 ? 'down' : 'flat';
+    const tcls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+    card.innerHTML =
+      `<div class="hero-block main"><span class="h-label">💼 보유 평가금액</span><span class="h-value">${won(value)}</span></div>
+       <div class="hero-sep"></div>
+       <div class="hero-block"><span class="h-label">당일 손익</span><span class="h-value ${dcls}">${daily >= 0 ? '+' : '-'}${won(daily)}</span></div>
+       <div class="hero-block"><span class="h-label">누적 손익</span><span class="h-value ${tcls}">${diff >= 0 ? '+' : '-'}${won(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</span></div>`;
+    return;
+  }
+  // 관심종목 모드 — 당일 등락 요약
+  const qs = watchlist.map(w => quoteCache[w.symbol]).filter(q => q && q.price != null && q.prev != null);
+  if (!qs.length) {
+    card.innerHTML = `<div class="hero-block main"><span class="h-label">⭐ 관심종목</span><span class="h-value flat" style="font-size:22px">시세 불러오는 중…</span></div>`;
+    return;
+  }
+  let up = 0, down = 0, flat = 0, sum = 0;
+  qs.forEach(q => { const c = (q.price - q.prev) / q.prev * 100; sum += c; if (c > 0) up++; else if (c < 0) down++; else flat++; });
+  const avg = sum / qs.length, acls = avg > 0 ? 'up' : avg < 0 ? 'down' : 'flat';
+  card.innerHTML =
+    `<div class="hero-block main"><span class="h-label">⭐ 관심종목 ${qs.length}개 · 당일 평균</span><span class="h-value ${acls}">${avg >= 0 ? '+' : ''}${avg.toFixed(2)}%</span></div>
+     <div class="hero-sep"></div>
+     <div class="hero-block"><span class="h-label">상승</span><span class="h-value up">${up}</span></div>
+     <div class="hero-block"><span class="h-label">하락</span><span class="h-value down">${down}</span></div>
+     <div class="hero-block"><span class="h-label">보합</span><span class="h-value flat">${flat}</span></div>`;
+}
+
+// ── 가격 알림 (목표가 도달 시 브라우저 알림) ──
+function getWatchlistAlerts() {
+  try { return JSON.parse(localStorage.getItem('watchlist-alerts') || '{}'); } catch (e) { return {}; }
+}
+function checkPriceAlerts() {
+  const alerts = getWatchlistAlerts();
+  let alerted = {};
+  try { alerted = JSON.parse(localStorage.getItem('watchlist-alerted') || '{}'); } catch (e) {}
+  watchlist.forEach(item => {
+    const target = alerts[item.symbol];
+    const q = quoteCache[item.symbol];
+    if (!target || !q || q.price == null) return;
+    const reached = q.price >= target;
+    if (reached && !alerted[item.symbol]) {
+      notifyPriceTarget(item, q.price, target);
+      alerted[item.symbol] = true;
+    } else if (!reached && alerted[item.symbol]) {
+      delete alerted[item.symbol]; // 이탈하면 다음 도달 때 다시 알림
+    }
+  });
+  try { localStorage.setItem('watchlist-alerted', JSON.stringify(alerted)); } catch (e) {}
+}
+function notifyPriceTarget(item, current, target) {
+  const title = `🔔 ${item.name || item.symbol} 목표가 도달`;
+  const body = `현재가 ${fmtPrice(current, item.symbol)} · 목표가 ${fmtPrice(target, item.symbol)}`;
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification(title, { body, tag: 'price-' + item.symbol }); } catch (e) {}
+  }
+  if (typeof setDataStatus === 'function') setDataStatus(title + ' — ' + body);
+}
+
+// ── 발견 섹션에서 클릭 시 빠른 추가 (검색 없이 직접 추가) ──
+function quickAddStock(symbol, name) {
+  const existing = watchlist.find(w => w.symbol === symbol);
+  if (existing) { selectStock(existing); openDetail(existing); return; }
+  const item = { symbol, name };
+  watchlist.push(item);
+  saveList();
+  renderWatchlist();
+  selectStock(item);
+  openDetail(item);
+}
+
 // ── 포트폴리오 총 요약 (미국 종목은 원/달러 환율로 환산) ──
 function updatePortfolio() {
+  updateHero(); // 히어로는 항상 갱신 (보유/관심 모드 자동 판단)
   const section = document.getElementById('portfolio-section');
   const bar = document.getElementById('portfolio-bar');
   const holdings = watchlist.filter(w => w.qty && w.avg && quoteCache[w.symbol] && quoteCache[w.symbol].price);
@@ -459,7 +588,9 @@ async function loadNews(el, target, attempt) {
       el.innerHTML = '<div class="loading">잠시 후 다시 시도합니다…</div>';
       setTimeout(() => loadNews(el, target, 1), 2500);
     } else {
-      el.innerHTML = '<div class="loading">뉴스를 불러오지 못했습니다. 새로고침해 보세요.</div>';
+      el.innerHTML = '<div class="loading">뉴스를 불러오지 못했습니다. <button class="retry-inline" aria-label="뉴스 다시 불러오기">다시 시도</button></div>';
+      const rb = el.querySelector('.retry-inline');
+      if (rb) rb.onclick = () => loadNews(el, target, 0);
     }
   }
 }
@@ -470,6 +601,7 @@ function syncNewsFilterBtn() {
   newsFilterBtn.textContent = newsTrustedOnly ? '🛡️ 신뢰 소스만' : '🌐 전체 소스';
   newsFilterBtn.style.borderColor = newsTrustedOnly ? 'var(--accent)' : 'var(--border)';
   newsFilterBtn.style.color = newsTrustedOnly ? 'var(--accent)' : 'var(--muted)';
+  newsFilterBtn.setAttribute('aria-pressed', newsTrustedOnly ? 'true' : 'false');
 }
 newsFilterBtn.onclick = () => {
   newsTrustedOnly = !newsTrustedOnly;
@@ -533,11 +665,15 @@ async function searchStocks(q) {
     items.forEach(it => {
       const div = document.createElement('div');
       div.className = 'ac-item';
+      div.setAttribute('role', 'option');
+      div.setAttribute('tabindex', '0');
       div.innerHTML = `<div><div class="nm"></div><div class="cd"></div></div><span class="mk"></span>`;
       div.querySelector('.nm').textContent = it.name;
       div.querySelector('.cd').textContent = it.code;
       div.querySelector('.mk').textContent = it.typeName || it.typeCode;
+      div.setAttribute('aria-label', it.name + ' ' + it.code + ' 추가');
       div.onclick = () => addFromSearch(it);
+      div.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addFromSearch(it); } };
       acBox.appendChild(div);
     });
   } catch (e) {

@@ -88,7 +88,12 @@ async function renderTrendingSectors(noCache) {
     stampAsof('ts-asof');
     if (typeof renderTopInsights === 'function') renderTopInsights();
   } catch (e) {
-    wrap.innerHTML = `<div class="loading">업종 데이터를 불러오지 못했습니다. <button class="retry-btn" onclick="renderTrendingSectors(true)" style="margin-left:8px">다시 시도</button></div>`;
+    if (trendingCache[mk] && trendingCache[mk].length) { // 실패 시 마지막 캐시라도 표시
+      paintTrending(wrap, trendingCache[mk], mk);
+      wrap.insertAdjacentHTML('beforeend', '<div class="oh-metric-note" style="margin-top:10px">⚠️ 데이터가 지연 중이라 직전 데이터를 표시 중입니다. <button class="retry-inline" onclick="renderTrendingSectors(true)">새로 고침</button></div>');
+    } else {
+      wrap.innerHTML = `<div class="loading">업종 데이터를 불러오지 못했습니다. <button class="retry-inline" onclick="renderTrendingSectors(true)" style="margin-left:8px">다시 시도</button></div>`;
+    }
   }
 }
 function paintTrending(wrap, sectors, mk) {
@@ -211,5 +216,102 @@ function renderTopInsights() {
   });
   el.innerHTML = html + '</div>';
   stampAsof('ti-asof');
+}
+
+// ═════════════════════ 📊 오늘의 발견 (종목 랭킹·스크리너) ═════════════════════
+// 네이버 금융 랭킹 API (검증됨): up=상승 / down=하락 / marketValue=시총. 코스피 기준.
+const RANK_DEFS = {
+  up:          { api: 'up',          reason: s => `오늘 +${s.chg.toFixed(1)}% 상승 상위 종목` },
+  down:        { api: 'down',        reason: s => `오늘 ${s.chg.toFixed(1)}% 하락 상위 종목` },
+  marketValue: { api: 'marketValue', reason: s => `시가총액 상위${s.mcap ? ' · ' + s.mcap : ''}` }
+};
+let discoveryCache = {};
+let discoveryMode = 'up';
+let screenerF = { minP: null, maxP: null, minC: null, maxC: null };
+const numK = s => { const n = parseFloat(String(s == null ? '' : s).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
+
+async function fetchRanking(api, noCache) {
+  if (!noCache && discoveryCache[api]) return discoveryCache[api];
+  const url = 'https://m.stock.naver.com/api/stocks/' + api + '?page=1&pageSize=30';
+  const j = await fetchViaProxy(url, false, o => o && Array.isArray(o.stocks));
+  const out = (j.stocks || []).map(s => {
+    const mkt = (s.stockExchangeType && s.stockExchangeType.code === 'KQ') ? 'KQ' : 'KS';
+    return { code: s.itemCode, symbol: s.itemCode + '.' + mkt, name: s.stockName, price: numK(s.closePrice), chg: numK(s.fluctuationsRatio) || 0, mcap: s.marketValueHangeul || '' };
+  }).filter(s => s.code && s.price != null);
+  discoveryCache[api] = out;
+  return out;
+}
+
+function diCard(s, reason) {
+  const cls = s.chg > 0 ? 'up' : s.chg < 0 ? 'down' : 'flat';
+  const added = watchlist.some(w => w.symbol === s.symbol);
+  return `<div class="di-card" role="button" tabindex="0" data-sym="${esc(s.symbol)}" data-name="${esc(s.name)}" aria-label="${esc(s.name)} 관심종목에 추가">
+    <div class="di-name">${esc(s.name)}${added ? ' <span class="di-added">✓ 추가됨</span>' : ''}</div>
+    <div class="di-code">${esc(s.symbol)}</div>
+    <div class="di-price">${fmtPrice(s.price, s.symbol)}</div>
+    <div class="di-chg ${cls}">${s.chg >= 0 ? '▲ +' : '▼ '}${Math.abs(s.chg).toFixed(2)}%</div>
+    <div class="di-reason">💡 ${esc(reason)}</div>
+  </div>`;
+}
+function bindDiCards(root) {
+  root.querySelectorAll('.di-card').forEach(c => {
+    const add = () => quickAddStock(c.dataset.sym, c.dataset.name);
+    c.onclick = add;
+    c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); add(); } };
+  });
+}
+
+async function renderDiscovery(mode, noCache) {
+  if (mode) discoveryMode = mode;
+  const el = document.getElementById('discovery-list');
+  if (!el) return;
+  document.querySelectorAll('#discovery-tabs button').forEach(b => {
+    const on = b.dataset.rank === discoveryMode;
+    b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (discoveryMode === 'screener') return renderScreener(noCache);
+  el.innerHTML = '<div class="loading">종목 데이터를 분석하는 중…</div>';
+  try {
+    const def = RANK_DEFS[discoveryMode];
+    const items = await fetchRanking(def.api, noCache);
+    if (discoveryMode === 'screener') return; // 그 사이 탭 변경
+    el.innerHTML = '<div class="discovery-grid">' + items.slice(0, 12).map(s => diCard(s, def.reason(s))).join('') + '</div>';
+    bindDiCards(el);
+    stampAsof('discovery-asof');
+  } catch (e) {
+    el.innerHTML = '<div class="loading">발견 데이터를 불러오지 못했습니다. <button class="retry-inline" onclick="renderDiscovery(null, true)">다시 시도</button></div>';
+  }
+}
+
+function renderScreener(noCache) {
+  const el = document.getElementById('discovery-list');
+  if (!el) return;
+  el.innerHTML = `<div class="screener-filter">
+    <label>주가 ₩ <input type="number" id="scr-minp" placeholder="최소" value="${screenerF.minP == null ? '' : screenerF.minP}"> ~ <input type="number" id="scr-maxp" placeholder="최대" value="${screenerF.maxP == null ? '' : screenerF.maxP}"></label>
+    <label>등락률 % <input type="number" id="scr-minc" placeholder="최소" value="${screenerF.minC == null ? '' : screenerF.minC}"> ~ <input type="number" id="scr-maxc" placeholder="최대" value="${screenerF.maxC == null ? '' : screenerF.maxC}"></label>
+    <button class="screener-reset" id="scr-reset">초기화</button>
+  </div><div id="scr-result"><div class="loading">시총 상위 종목을 불러오는 중…</div></div>`;
+  ['scr-minp', 'scr-maxp', 'scr-minc', 'scr-maxc'].forEach(id => { const i = el.querySelector('#' + id); if (i) i.onchange = applyScreener; });
+  el.querySelector('#scr-reset').onclick = () => { screenerF = { minP: null, maxP: null, minC: null, maxC: null }; renderScreener(); };
+  fetchRanking('marketValue', noCache).then(applyScreener).catch(() => {
+    const r = el.querySelector('#scr-result'); if (r) r.innerHTML = '<div class="loading">데이터 로드 실패 <button class="retry-inline" onclick="renderScreener(true)">다시 시도</button></div>';
+  });
+}
+function applyScreener() {
+  const el = document.getElementById('discovery-list'); if (!el) return;
+  const g = id => { const i = el.querySelector('#' + id); const v = i ? parseFloat(i.value) : NaN; return isNaN(v) ? null : v; };
+  screenerF = { minP: g('scr-minp'), maxP: g('scr-maxp'), minC: g('scr-minc'), maxC: g('scr-maxc') };
+  const uni = discoveryCache['marketValue'] || [];
+  const out = uni.filter(s =>
+    (screenerF.minP == null || s.price >= screenerF.minP) &&
+    (screenerF.maxP == null || s.price <= screenerF.maxP) &&
+    (screenerF.minC == null || s.chg >= screenerF.minC) &&
+    (screenerF.maxC == null || s.chg <= screenerF.maxC));
+  const res = el.querySelector('#scr-result'); if (!res) return;
+  res.innerHTML = out.length
+    ? '<div class="discovery-grid">' + out.slice(0, 12).map(s => diCard(s, '시총상위 · 조건 충족')).join('') + '</div>'
+    : '<div class="loading">조건에 맞는 종목이 없습니다. (유니버스: 코스피 시총 상위 30)</div>';
+  bindDiCards(res);
+  stampAsof('discovery-asof');
 }
 

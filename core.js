@@ -61,6 +61,12 @@ const PROXY_DEFS = [
 // 호스트별 마지막 성공 프록시 기억 (네이버는 corsproxy가 차단하므로 corsfix(2)부터 시작)
 const proxyAffinity = { 'm.stock.naver.com': 2, 'api.stock.naver.com': 2, 'ac.stock.naver.com': 2 };
 const CACHE_TTL = 3 * 60 * 1000; // 시세 캐시 3분
+// 데이터 로드 실패 시 마지막 캐시를 표시하고 상태 배너로 알림 (stale-while-error)
+function noteStale(ts) {
+  if (typeof setDataStatus === 'function')
+    setDataStatus('일부 데이터가 지연되어 마지막 저장본을 표시 중입니다 ('
+      + new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준)');
+}
 
 // ── Claude AI 연동 (하이브리드: 키 입력 시에만 실제 LLM 호출) ──
 const CLAUDE_MODELS = {
@@ -85,6 +91,29 @@ async function callClaude(system, user, maxTokens = 1500) {
     },
     body: JSON.stringify({ model: getClaudeModel(), max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
     signal: AbortSignal.timeout(60000)
+  });
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try { const e = await res.json(); if (e.error && e.error.message) msg = e.error.message; } catch (x) {}
+    throw new Error(msg);
+  }
+  const j = await res.json();
+  return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+}
+// 멀티턴 대화용 — messages 배열을 그대로 전달 (대화형 질의 기능)
+async function claudeChat(system, messages, maxTokens = 800) {
+  const key = getClaudeKey();
+  if (!key) throw new Error('NO_KEY');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model: getClaudeModel(), max_tokens: maxTokens, system, messages }),
+    signal: AbortSignal.timeout(45000)
   });
   if (!res.ok) {
     let msg = 'HTTP ' + res.status;
@@ -136,37 +165,41 @@ function isValidRss(t) { return typeof t === 'string' && /<item[\s>]|<entry[\s>]
 // Yahoo Finance 차트 API (시세 + 시계열, 인증 불필요)
 async function fetchChart(symbol, range, interval, noCache) {
   const cacheKey = `yf:${symbol}:${range}:${interval}`;
-  if (!noCache) {
-    try {
-      const c = JSON.parse(localStorage.getItem(cacheKey));
-      if (c && Date.now() - c.t < CACHE_TTL) return c.d;
-    } catch (e) {}
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) {}
+  if (!noCache && cached && cached.d && Date.now() - cached.t < CACHE_TTL) return cached.d;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+    const json = await fetchViaProxy(url, false);
+    const result = json?.chart?.result?.[0];
+    if (!result) throw new Error('no data: ' + symbol);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: result })); } catch (e) {}
+    return result;
+  } catch (e) {
+    if (cached && cached.d) { noteStale(cached.t); return cached.d; } // 실패 시 마지막 캐시라도 표시
+    throw e;
   }
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-  const json = await fetchViaProxy(url, false);
-  const result = json?.chart?.result?.[0];
-  if (!result) throw new Error('no data: ' + symbol);
-  try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: result })); } catch (e) {}
-  return result;
 }
 
 // Yahoo spark API — 여러 종목 시세를 한 번에 (프록시 요청 폭주 방지)
 // 응답: { "심볼": { timestamp[], close[], previousClose, ... }, ... }
 async function fetchSpark(symbols, range, interval, noCache) {
   const cacheKey = `yfs:${symbols.join('|')}:${range}`;
-  if (!noCache) {
-    try {
-      const c = JSON.parse(localStorage.getItem(cacheKey));
-      if (c && Date.now() - c.t < CACHE_TTL) return c.d;
-    } catch (e) {}
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) {}
+  if (!noCache && cached && cached.d && Date.now() - cached.t < CACHE_TTL) return cached.d;
+  try {
+    // 심볼의 ^, = 등은 인코딩하되 구분자 콤마는 그대로 둬야 한다
+    const symParam = symbols.map(encodeURIComponent).join(',');
+    const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symParam}&range=${range}&interval=${interval}`;
+    const json = await fetchViaProxy(url, false);
+    if (!json || typeof json !== 'object') throw new Error('spark: no data');
+    try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: json })); } catch (e) {}
+    return json;
+  } catch (e) {
+    if (cached && cached.d) { noteStale(cached.t); return cached.d; } // 실패 시 마지막 캐시라도 표시
+    throw e;
   }
-  // 심볼의 ^, = 등은 인코딩하되 구분자 콤마는 그대로 둬야 한다
-  const symParam = symbols.map(encodeURIComponent).join(',');
-  const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symParam}&range=${range}&interval=${interval}`;
-  const json = await fetchViaProxy(url, false);
-  if (!json || typeof json !== 'object') throw new Error('spark: no data');
-  try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: json })); } catch (e) {}
-  return json;
 }
 
 function isKorean(symbol) { return /\.(KS|KQ)$/.test(symbol); }

@@ -25,6 +25,14 @@
   <button class="refresh" id="refresh-btn" style="margin-left:0">🔄 새로고침 <span id="updated-at"></span></button>
 </header>
 
+<!-- 전역 데이터 상태 배너 (지연/실패 시에만 표시) -->
+<div class="data-status-banner" id="data-status-banner" role="status" aria-live="polite"></div>
+
+<!-- ════════ 📊 핵심 숫자 히어로 (항상 표시) ════════ -->
+<div class="hero-section" id="hero-section">
+  <div class="hero-card" id="hero-card" aria-label="핵심 숫자 요약"></div>
+</div>
+
 <!-- ════════ 🔝 오늘의 핵심 Top3 ════════ -->
 <div class="section" id="top-insights-section">
   <div class="ti-head">
@@ -51,7 +59,7 @@
 </div>
 
 <!-- 시장 뉴스 (거시) -->
-<div class="section">
+<div class="section" id="section-market-news">
   <div class="wl-head">
     <h2>📰 시장 뉴스</h2>
     <button id="news-filter-toggle" title="연합뉴스·한경·머니투데이 / Reuters·Bloomberg·WSJ 등 신뢰도 높은 매체만 표시"></button>
@@ -63,7 +71,7 @@
 <!-- 떠오르는 업종 (거시) -->
 <div class="section" id="trending-section">
   <div class="wl-head">
-    <h2 class="toggle-h"><span class="chev">▾</span>🔥 떠오르는 업종</h2>
+    <h2 class="toggle-h" role="button" tabindex="0" aria-expanded="true"><span class="chev">▾</span>🔥 떠오르는 업종</h2>
     <div class="ts-toggle" id="ts-toggle">
       <button data-mk="kr" class="active">🇰🇷 한국</button>
       <button data-mk="us">🇺🇸 미국 섹터</button>
@@ -116,9 +124,26 @@
   <div id="watchlist"></div>
 </div>
 
+<!-- 📊 오늘의 발견 (종목 랭킹·스크리너) -->
+<div class="section" id="discovery-section">
+  <div class="wl-head">
+    <h2 class="toggle-h" role="button" tabindex="0" aria-expanded="true"><span class="chev">▾</span>📊 오늘의 발견</h2>
+    <div class="discovery-tabs" id="discovery-tabs" role="tablist" aria-label="종목 발견 분류">
+      <button data-rank="up" class="active" role="tab" aria-selected="true">⬆️ 급등</button>
+      <button data-rank="down" role="tab" aria-selected="false">⬇️ 급락</button>
+      <button data-rank="marketValue" role="tab" aria-selected="false">🏆 시총상위</button>
+      <button data-rank="screener" role="tab" aria-selected="false">🎯 스크린</button>
+    </div>
+    <span class="block-asof" id="discovery-asof"></span>
+  </div>
+  <div class="collapse-body">
+    <div id="discovery-list"><div class="loading">종목 데이터를 분석하는 중…</div></div>
+  </div>
+</div>
+
 <!-- 선택 종목 뉴스 (미시) -->
-<div class="section">
-  <h2 class="toggle-h" style="font-size:1rem;color:var(--muted);margin-bottom:10px;letter-spacing:0.04em;"><span class="chev">▾</span>📰 선택 종목 뉴스 — <span id="news-symbol-label"></span></h2>
+<div class="section" id="section-symbol-news">
+  <h2 class="toggle-h" role="button" tabindex="0" aria-expanded="true" style="font-size:1rem;color:var(--muted);margin-bottom:10px;letter-spacing:0.04em;"><span class="chev">▾</span>📰 선택 종목 뉴스 — <span id="news-symbol-label"></span></h2>
   <div class="collapse-body">
     <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
   </div>
@@ -127,37 +152,61 @@
 </main>
 
 <!-- AI 설정 모달 -->
-<div class="detail-overlay" id="settings-overlay">
-  <div class="detail-sheet" style="max-width:540px">
+<div class="detail-overlay" id="settings-overlay" role="presentation">
+  <div class="detail-sheet" style="max-width:540px" role="dialog" aria-modal="true" aria-label="설정" tabindex="-1">
     <div class="detail-head">
       <div class="d-title"><div class="d-name">🤖 Claude AI 연동 설정</div><div class="d-sub">종합 투자 의견을 AI가 직접 분석해 줍니다</div></div>
       <button class="d-close" id="settings-close" title="닫기">✕</button>
     </div>
     <div class="detail-body">
-      <div class="set-field">
-        <label>Anthropic API 키</label>
-        <input type="password" id="set-key" placeholder="sk-ant-..." autocomplete="off">
-        <div class="set-note">키는 <b>이 기기의 브라우저에만</b> 저장되며 서버로 전송되지 않습니다. 호출 비용은 본인 Anthropic 계정으로 청구됩니다. 키 발급: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a></div>
+      <div class="set-tabs" id="set-tabs" role="tablist" aria-label="설정 분류">
+        <button data-set-tab="ai" class="active" role="tab" aria-selected="true">AI 연동</button>
+        <button data-set-tab="ui" role="tab" aria-selected="false">화면 구성</button>
       </div>
-      <div class="set-field">
-        <label>모델 선택</label>
-        <select id="set-model"></select>
-        <div class="set-note">Opus는 분석 품질이 가장 높고, Haiku는 빠르고 저렴합니다. 종합 의견은 짧아서 비용 부담이 크지 않습니다.</div>
+      <div class="set-pane" id="set-pane-ai">
+        <div class="set-field">
+          <label>Anthropic API 키</label>
+          <input type="password" id="set-key" placeholder="sk-ant-..." autocomplete="off">
+          <div class="set-note">키는 <b>이 기기의 브라우저에만</b> 저장되며 서버로 전송되지 않습니다. 호출 비용은 본인 Anthropic 계정으로 청구됩니다. 키 발급: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a></div>
+        </div>
+        <div class="set-field">
+          <label>모델 선택</label>
+          <select id="set-model"></select>
+          <div class="set-note">Opus는 분석 품질이 가장 높고, Haiku는 빠르고 저렴합니다. 종합 의견은 짧아서 비용 부담이 크지 않습니다.</div>
+        </div>
+        <div class="set-actions">
+          <button id="set-save" class="set-primary">저장</button>
+          <button id="set-test">연결 테스트</button>
+          <button id="set-clear" class="set-ghost">키 삭제</button>
+        </div>
+        <div id="set-result" class="set-result"></div>
+        <div class="disclaimer" style="margin-top:18px">⚠️ API 키를 입력하지 않아도 모든 점수·인포그래픽은 규칙 기반으로 동작합니다. AI 연동은 '🤖 Claude 심층 의견'·'💬 대화형 질문' 기능에서만 사용되며, 생성된 의견 역시 투자 권유가 아닌 참고 자료입니다.</div>
       </div>
-      <div class="set-actions">
-        <button id="set-save" class="set-primary">저장</button>
-        <button id="set-test">연결 테스트</button>
-        <button id="set-clear" class="set-ghost">키 삭제</button>
+      <div class="set-pane" id="set-pane-ui" hidden>
+        <div class="set-field">
+          <label>표시할 섹션</label>
+          <div class="section-toggles" id="section-toggles">
+            <label><input type="checkbox" class="section-toggle" data-block="top-insights-section" checked> 🔝 오늘의 핵심 Top3</label>
+            <label><input type="checkbox" class="section-toggle" data-block="infographic-section" checked> 📊 종합 투자 환경</label>
+            <label><input type="checkbox" class="section-toggle" data-block="section-market-news" checked> 📰 시장 뉴스</label>
+            <label><input type="checkbox" class="section-toggle" data-block="trending-section" checked> 🔥 떠오르는 업종</label>
+            <label><input type="checkbox" class="section-toggle" data-block="discovery-section" checked> 📊 오늘의 발견</label>
+            <label><input type="checkbox" class="section-toggle" data-block="section-symbol-news" checked> 📰 선택 종목 뉴스</label>
+          </div>
+          <div class="set-note">선택 해제한 섹션은 화면에서 숨겨집니다. 거시 지표·관심종목은 핵심이라 항상 표시됩니다. 설정은 이 기기에 저장됩니다.</div>
+        </div>
+        <div class="set-field">
+          <label>가격 알림</label>
+          <div class="set-note">관심종목 카드의 '목표가'를 입력하면, 현재가가 목표가에 도달했을 때 브라우저 알림을 보냅니다. <button id="notif-enable" class="set-ghost" style="margin-top:8px">🔔 브라우저 알림 켜기</button></div>
+        </div>
       </div>
-      <div id="set-result" class="set-result"></div>
-      <div class="disclaimer" style="margin-top:18px">⚠️ API 키를 입력하지 않아도 모든 점수·인포그래픽은 규칙 기반으로 동작합니다. AI 연동은 '🤖 Claude 심층 의견' 기능에서만 사용되며, 생성된 의견 역시 투자 권유가 아닌 참고 자료입니다.</div>
     </div>
   </div>
 </div>
 
 <!-- 종목 상세 모달 -->
-<div class="detail-overlay" id="detail-overlay">
-  <div class="detail-sheet">
+<div class="detail-overlay" id="detail-overlay" role="presentation">
+  <div class="detail-sheet" role="dialog" aria-modal="true" aria-labelledby="d-name" tabindex="-1">
     <div class="detail-head">
       <img class="d-logo hidden" id="d-logo" alt="">
       <div class="d-title">
@@ -170,21 +219,21 @@
       </div>
       <button class="d-close" id="d-close" title="닫기">✕</button>
     </div>
-    <div class="detail-tabs" id="detail-tabs">
-      <button data-tab="summary" class="active">종합</button>
-      <button data-tab="overview">개요</button>
-      <button data-tab="fund">재무</button>
-      <button data-tab="tech">기술</button>
-      <button data-tab="future">전망</button>
-      <button data-tab="news">뉴스</button>
+    <div class="detail-tabs" id="detail-tabs" role="tablist" aria-label="종목 상세 탭">
+      <button data-tab="summary" class="active" role="tab" aria-selected="true" aria-controls="tab-summary">종합</button>
+      <button data-tab="overview" role="tab" aria-selected="false" aria-controls="tab-overview">개요</button>
+      <button data-tab="fund" role="tab" aria-selected="false" aria-controls="tab-fund">재무</button>
+      <button data-tab="tech" role="tab" aria-selected="false" aria-controls="tab-tech">기술</button>
+      <button data-tab="future" role="tab" aria-selected="false" aria-controls="tab-future">전망</button>
+      <button data-tab="news" role="tab" aria-selected="false" aria-controls="tab-news">뉴스</button>
     </div>
     <div class="detail-body">
-      <div class="d-tab" id="tab-summary"></div>
-      <div class="d-tab" id="tab-overview" hidden></div>
-      <div class="d-tab" id="tab-fund" hidden></div>
-      <div class="d-tab" id="tab-tech" hidden></div>
-      <div class="d-tab" id="tab-future" hidden></div>
-      <div class="d-tab" id="tab-news" hidden></div>
+      <div class="d-tab" id="tab-summary" role="tabpanel"></div>
+      <div class="d-tab" id="tab-overview" role="tabpanel" hidden></div>
+      <div class="d-tab" id="tab-fund" role="tabpanel" hidden></div>
+      <div class="d-tab" id="tab-tech" role="tabpanel" hidden></div>
+      <div class="d-tab" id="tab-future" role="tabpanel" hidden></div>
+      <div class="d-tab" id="tab-news" role="tabpanel" hidden></div>
     </div>
   </div>
 </div>

@@ -47,10 +47,10 @@ function scoreFinanceVal(d, item) {
   };
 }
 
-function scoreTechnicalVal(bars) {
+function scoreTechnicalVal(bars, item) {
   if (!bars || bars.length < 30) return null;
   let sigs;
-  try { sigs = computeSignals(bars); } catch (e) { return null; } // computeSignals는 techState 전역에 의존 — 미설정 시 안전 제외
+  try { sigs = computeSignals(bars, item && item.symbol); } catch (e) { return null; } // 심볼 전달 → techState 미설정이어도 안전
   if (!sigs.length) return null;
   const buy = sigs.filter(s => s.grade === 'buy').length;
   const sell = sigs.filter(s => s.grade === 'sell').length;
@@ -288,7 +288,7 @@ function renderMainInfographic() {
     }
     html += `</div>`;
   });
-  html += `</div><div class="info-foot"><button class="ai-btn" id="main-ai-btn">${hasClaudeKey() ? '🤖 Claude 시황 코멘트' : '🤖 Claude 코멘트 (AI 설정 필요)'}</button><span class="info-disclaim">규칙 기반 참고 지표이며 투자 권유가 아닙니다. 시장 환경은 수시로 변합니다.</span></div><div id="main-ai-zone"></div></div>`;
+  html += `</div><div class="info-foot"><button class="ai-btn" id="main-ai-btn">${hasClaudeKey() ? '🤖 Claude 시황 코멘트' : '🤖 Claude 코멘트 (AI 설정 필요)'}</button><span class="info-disclaim">규칙 기반 참고 지표이며 투자 권유가 아닙니다. 시장 환경은 수시로 변합니다.</span></div><div id="main-ai-zone"></div><div id="main-chat-zone" style="margin-top:10px"></div></div>`;
   el.innerHTML = html;
   el.querySelectorAll('.info-bar.expandable').forEach(bar => {
     bar.addEventListener('click', () => {
@@ -313,6 +313,63 @@ function renderMainInfographic() {
       btn.disabled = false; btn.textContent = '🤖 다시 시도';
     }
   };
+  renderMainChat(parts, score);
+}
+
+// ── 메인 시황 대화형 AI 질의 ──
+let mainChat = null; // { history:[{role,content}] }
+function buildMainChatContext(parts, score) {
+  const lines = MAIN_DIMS.map(d => { const p = parts[d.key]; return `- ${d.label}: ${p ? p.score + '점 — ' + p.summary : '데이터 없음'}`; }).join('\n');
+  const holds = watchlist.map(w => w.name || w.symbol).slice(0, 12).join(', ');
+  const news = (typeof marketNewsItems !== 'undefined' && marketNewsItems ? marketNewsItems : []).slice(0, 3).map(n => n.title).join(' | ');
+  return `[오늘의 종합 투자 환경]\n종합: ${score}/100\n${lines}\n관심종목: ${holds}${news ? '\n시장 뉴스: ' + news : ''}`;
+}
+function renderMainChat(parts, score) {
+  const zone = document.getElementById('main-chat-zone');
+  if (!zone) return;
+  const hasKey = hasClaudeKey();
+  zone.innerHTML = `<div class="ai-box" style="background:rgba(176,140,255,0.06)">
+    <div style="font-size:0.86rem;font-weight:700;margin-bottom:8px">💬 오늘 시장에 대해 자유롭게 질문하세요</div>
+    <div class="chat-box">
+      <div class="chat-messages" id="main-chat-msgs"></div>
+      <div class="chat-input-row">
+        <textarea id="main-chat-input" placeholder="${hasKey ? '예: 오늘 시장 분위기는? · 어떤 업종이 강한가? · 무엇을 유의할까?' : 'AI 설정에서 Claude API 키를 입력하면 질문할 수 있습니다'}" ${hasKey ? '' : 'disabled'} aria-label="시황 질문 입력"></textarea>
+        <button class="chat-send-btn" id="main-chat-send" ${hasKey ? '' : 'disabled'}>✉️ 질문</button>
+      </div>
+      ${hasKey ? '' : '<div class="hint" style="margin-top:8px;font-size:0.74rem">🔑 우측 상단 ⚙️ AI 설정에서 키를 넣으면 활성화됩니다.</div>'}
+    </div></div>`;
+  if (!mainChat) mainChat = { history: [] };
+  const msgs = zone.querySelector('#main-chat-msgs');
+  mainChat.history.forEach(m => { const dv = document.createElement('div'); dv.className = 'chat-msg ' + m.role; dv.textContent = m.content; msgs.appendChild(dv); });
+  if (!hasKey) return;
+  const input = zone.querySelector('#main-chat-input'), btn = zone.querySelector('#main-chat-send');
+  const send = () => handleMainChat(parts, score, input, btn, msgs);
+  btn.onclick = send;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !btn.disabled) { e.preventDefault(); send(); } });
+}
+async function handleMainChat(parts, score, input, btn, msgs) {
+  const q = input.value.trim();
+  if (!q) return;
+  const u = document.createElement('div'); u.className = 'chat-msg user'; u.textContent = q; msgs.appendChild(u);
+  input.value = ''; msgs.scrollTop = msgs.scrollHeight;
+  mainChat.history.push({ role: 'user', content: q });
+  if (mainChat.history.length > 8) mainChat.history = mainChat.history.slice(-8);
+  btn.disabled = true; btn.textContent = '🤖 …';
+  const a = document.createElement('div'); a.className = 'chat-msg assistant typing'; msgs.appendChild(a); msgs.scrollTop = msgs.scrollHeight;
+  const sys = '당신은 한국어로 답하는 신중한 시황 애널리스트입니다. 제공된 거시·모멘텀·뉴스 지표만 근거로 답하고, 단정적 예측은 피하며 불확실성을 함께 짚습니다. 투자 권유가 아닌 참고 의견입니다. 3~5문장 이내로 답하세요.';
+  const ctx = buildMainChatContext(parts, score);
+  const msgsApi = mainChat.history.map((m, i) => i === mainChat.history.length - 1 ? { role: 'user', content: ctx + '\n\n질문: ' + m.content } : m);
+  try {
+    const reply = await claudeChat(sys, msgsApi);
+    a.classList.remove('typing');
+    a.innerHTML = esc(reply).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    mainChat.history.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    a.classList.remove('typing');
+    a.innerHTML = '<span class="bad">❌ ' + esc(e.message === 'NO_KEY' ? 'AI 설정에서 키를 입력하세요' : e.message) + '</span>';
+  } finally {
+    btn.disabled = false; btn.textContent = '✉️ 질문'; msgs.scrollTop = msgs.scrollHeight;
+  }
 }
 async function claudeMarketComment(parts, score) {
   const macroDetail = (scoreMacroVal() && scoreMacroVal().reasons || []).join(', ');
