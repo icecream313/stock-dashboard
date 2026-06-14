@@ -322,9 +322,42 @@ function quickAddStock(symbol, name) {
   openDetail(item);
 }
 
+// ── 포트폴리오 집중도·분산 분석 (2종목 이상 보유 시) ──
+function renderPortfolioAnalysis() {
+  const sec = document.getElementById('portfolio-analysis');
+  if (!sec) return;
+  const holds = watchlist.filter(w => w.qty && w.avg && quoteCache[w.symbol] && quoteCache[w.symbol].price);
+  const needFx = holds.some(w => !isKorean(w.symbol));
+  if (holds.length < 2 || (needFx && !usdkrw)) { sec.hidden = true; return; }
+  const valOf = w => { const q = quoteCache[w.symbol], fx = isKorean(w.symbol) ? 1 : usdkrw; return w.qty * q.price * fx; };
+  const total = holds.reduce((a, w) => a + valOf(w), 0);
+  if (!total) { sec.hidden = true; return; }
+  const rows = holds.map(w => ({ name: w.name || w.symbol, w: valOf(w) / total * 100 })).sort((a, b) => b.w - a.w);
+  const top1 = rows[0].w, top3 = rows.slice(0, 3).reduce((a, r) => a + r.w, 0);
+  const krW = holds.filter(w => isKorean(w.symbol)).reduce((a, w) => a + valOf(w), 0) / total * 100;
+  const concCls = top1 >= 50 ? 'bad' : top1 >= 30 ? 'mid' : 'good';
+  let h = `<div class="wl-head"><h2>🧩 포트폴리오 분석 <span style="font-size:0.74rem;color:var(--muted);font-weight:400">— 집중도·분산</span></h2></div>`;
+  h += `<div class="pf-bar" style="margin-bottom:12px">
+    <div class="pf-item"><div class="k">보유 종목</div><div class="v">${holds.length}개</div></div>
+    <div class="pf-item"><div class="k">최대 단일 비중</div><div class="v ${concCls}">${top1.toFixed(1)}%</div></div>
+    <div class="pf-item"><div class="k">상위 3종목</div><div class="v ${top3 >= 70 ? 'bad' : top3 >= 50 ? 'mid' : 'good'}">${top3.toFixed(1)}%</div></div>
+    <div class="pf-item"><div class="k">국가 배분</div><div class="v" style="font-size:0.9rem">🇰🇷 ${krW.toFixed(0)}% · 🇺🇸 ${(100 - krW).toFixed(0)}%</div></div></div>`;
+  h += `<div style="display:flex;flex-direction:column;gap:7px">`;
+  rows.forEach(r => {
+    h += `<div style="display:flex;align-items:center;gap:10px">
+      <div style="width:120px;font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${esc(r.name)}</div>
+      <div style="flex:1;height:14px;background:var(--bg-soft);border-radius:7px;overflow:hidden"><div style="width:${r.w.toFixed(1)}%;height:100%;background:var(--accent);border-radius:7px"></div></div>
+      <div style="width:46px;text-align:right;font-size:0.82rem;font-weight:700;flex-shrink:0">${r.w.toFixed(1)}%</div></div>`;
+  });
+  h += `</div><div class="hint" style="margin-top:10px">💡 한 종목 비중이 클수록 그 종목 급락에 포트폴리오 전체가 흔들립니다. 최대 단일 비중 <b>50% 이상이면 과집중</b> 경고. (단일 5%·섹터 25% 상한은 대형 포트 기준의 분산 가이드로 참고용)</div>`;
+  sec.hidden = false;
+  sec.innerHTML = h;
+}
+
 // ── 포트폴리오 총 요약 (미국 종목은 원/달러 환율로 환산) ──
 function updatePortfolio() {
   updateHero(); // 히어로는 항상 갱신 (보유/관심 모드 자동 판단)
+  renderPortfolioAnalysis(); // 집중도·분산 분석
   const section = document.getElementById('portfolio-section');
   const bar = document.getElementById('portfolio-bar');
   const holdings = watchlist.filter(w => w.qty && w.avg && quoteCache[w.symbol] && quoteCache[w.symbol].price);

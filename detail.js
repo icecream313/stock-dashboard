@@ -317,12 +317,18 @@ function renderOverviewTab(d, item) {
   const cur = quoteCache[item.symbol] ? quoteCache[item.symbol].price : numOf(infoVal(d.infos, '전일'));
   if (high && low && cur && high > low) {
     const pos = Math.min(100, Math.max(0, (cur - low) / (high - low) * 100));
+    const toHigh = (high - cur) / cur * 100, fromLow = (cur - low) / low * 100;
     html += `<div class="band-wrap">
       <div class="band-title">52주 가격 범위 내 현재 위치 — <b>${pos.toFixed(0)}%</b> 지점</div>
       <div class="band-bar"><div class="band-cursor" style="left:${pos}%"></div></div>
       <div class="band-labels"><span>최저 ${fmtPrice(low, item.symbol)}</span><span>최고 ${fmtPrice(high, item.symbol)}</span></div>
+      <div class="oh-metric-note" style="margin-top:8px">고가까지 <b class="up">+${toHigh.toFixed(1)}%</b> 여력 · 저가 대비 <b class="down">+${fromLow.toFixed(1)}%</b> 상승. ${pos >= 90 ? '신고가 부근 — 단기 과열 가능성을 함께 보세요.' : pos <= 15 ? '신저가 부근 — 반등·추가하락 여부를 함께 보세요.' : '범위 중간대입니다.'}</div>
     </div>`;
   }
+  // 투자자별 수급 추세 (국내 — 최근 5거래일 외국인·기관·개인)
+  html += supplyTrendHTML(d);
+  // 배당 이력 (야후 비동기 — 자리만)
+  html += `<div id="ov-dividends"></div>`;
   // 내 보유 정보 입력 (수량·평단가 → 카드와 상단 요약에 손익 표시)
   const unit = isKorean(item.symbol) ? '원' : '$';
   html += `<div class="holding-form" style="margin-top:14px">
@@ -334,8 +340,11 @@ function renderOverviewTab(d, item) {
       ${item.qty ? '<button class="hf-del" id="hf-del">보유 삭제</button>' : ''}
     </div>
     <div class="hf-result" id="hf-result"></div>
+    <div id="hf-sim"></div>
   </div>`;
   el.innerHTML = html;
+  fillDividends(item);       // 배당 이력 (야후 비동기)
+  renderSimulator(el, item); // 손절·익절 시뮬레이터 (보유 시)
   // 보유 폼 이벤트
   const showPL = () => {
     const pl = holdingPL(item);
@@ -368,6 +377,136 @@ function renderOverviewTab(d, item) {
     updatePortfolio();
     renderOverviewTab(d, item);
   };
+}
+
+// ── 투자자별 수급 추세 (국내 — 최근 5거래일) ──
+function supplyTrendHTML(d) {
+  const dt = (d.dealTrend || []).slice(0, 5);
+  if (!dt.length) return '';
+  const num = s => { const n = parseFloat(String(s || '').replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
+  const days = [...dt].reverse(); // 과거 → 최신
+  const rows = [['외국인', 'foreignerPureBuyQuant'], ['기관', 'organPureBuyQuant'], ['개인', 'individualPureBuyQuant']];
+  let h = `<div class="hf-title" style="font-size:0.92rem;margin-top:16px">💧 투자자별 수급 추세 <span style="color:var(--muted);font-weight:400">— 최근 ${dt.length}거래일 순매수(주)</span></div>`;
+  h += `<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>투자자</th>`;
+  days.forEach(x => { const b = x.bizdate || ''; h += `<th>${b.slice(4, 6)}/${b.slice(6, 8)}</th>`; });
+  h += `<th>5일 합</th></tr></thead><tbody>`;
+  rows.forEach(([label, key]) => {
+    let sum = 0;
+    h += `<tr><td>${label}</td>`;
+    days.forEach(x => { const v = num(x[key]); sum += v; const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'flat'; h += `<td class="${cls}">${v >= 0 ? '+' : ''}${fmtNum(v)}</td>`; });
+    const scls = sum > 0 ? 'up' : sum < 0 ? 'down' : 'flat';
+    h += `<td class="${scls}"><b>${sum >= 0 ? '+' : ''}${fmtNum(sum)}</b></td></tr>`;
+  });
+  h += `</tbody></table></div><div class="unit-note">외국인·기관이 함께 순매수(빨강)면 수급 우호, 함께 순매도(파랑)면 부담. 개인은 보통 반대 방향입니다.</div>`;
+  return h;
+}
+
+// ── 배당 이력 (야후 chart events=div, 비동기) ──
+async function fillDividends(item) {
+  const zone = document.getElementById('ov-dividends');
+  if (!zone || item.isIndex) return;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(item.symbol)}?range=5y&interval=1d&events=div`;
+    const json = await fetchViaProxy(url, false);
+    if (detailItem !== item) return;
+    const ev = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].events && json.chart.result[0].events.dividends;
+    if (!ev) return;
+    const divs = Object.values(ev).map(x => ({ amount: x.amount, date: new Date(x.date * 1000) })).sort((a, b) => b.date - a.date);
+    if (!divs.length) return;
+    const ttm = divs.filter(x => x.date.getTime() >= Date.now() - 365 * 864e5).reduce((a, x) => a + x.amount, 0);
+    const cur = quoteCache[item.symbol] && quoteCache[item.symbol].price;
+    const yld = (ttm && cur) ? ttm / cur * 100 : null;
+    let h = `<div class="hf-title" style="font-size:0.92rem;margin-top:16px">💰 배당 이력 <span style="color:var(--muted);font-weight:400">— 최근 지급 내역${yld ? ` · 최근 1년 합산 수익률 약 ${yld.toFixed(2)}%` : ''}</span></div><div class="metric-grid">`;
+    divs.slice(0, 6).forEach(x => { h += `<div class="metric"><div class="k">${x.date.getFullYear()}.${String(x.date.getMonth() + 1).padStart(2, '0')}</div><div class="v">${fmtPrice(x.amount, item.symbol)}</div></div>`; });
+    h += `</div><div class="unit-note">배당락일 기준 과거 지급액입니다. 미래 배당은 보장되지 않습니다.</div>`;
+    zone.innerHTML = h;
+  } catch (e) {}
+}
+
+// ── 손절·익절 시뮬레이터 (보유 시) ──
+function renderSimulator(el, item) {
+  const zone = el.querySelector('#hf-sim');
+  if (!zone) return;
+  if (!item.qty || !item.avg) { zone.innerHTML = ''; return; }
+  const tp = getWatchlistAlerts()[item.symbol] || '';
+  zone.innerHTML = `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+    <div class="hf-title" style="font-size:0.85rem">🎯 손절·익절 시뮬레이터 <span style="color:var(--muted);font-weight:400">— ${item.qty.toLocaleString()}주 · 평단 ${fmtPrice(item.avg, item.symbol)}</span></div>
+    <div class="hf-row">
+      <input id="sim-tp" type="number" min="0" step="any" placeholder="익절 목표가" value="${tp}" aria-label="익절 목표가">
+      <input id="sim-sl" type="number" min="0" step="any" placeholder="손절가" aria-label="손절가">
+    </div>
+    <div id="sim-out" class="hf-result"></div></div>`;
+  const tpI = zone.querySelector('#sim-tp'), slI = zone.querySelector('#sim-sl'), out = zone.querySelector('#sim-out');
+  const calc = () => {
+    const lines = [], tpv = parseFloat(tpI.value), slv = parseFloat(slI.value);
+    if (tpv > 0) { const g = (tpv - item.avg) * item.qty, p = (tpv - item.avg) / item.avg * 100; lines.push(`익절 시 <b class="up">${g >= 0 ? '+' : ''}${fmtPrice(g, item.symbol)} (${p >= 0 ? '+' : ''}${p.toFixed(1)}%)</b>`); }
+    if (slv > 0) { const g = (slv - item.avg) * item.qty, p = (slv - item.avg) / item.avg * 100; lines.push(`손절 시 <b class="down">${fmtPrice(g, item.symbol)} (${p.toFixed(1)}%)</b>`); }
+    if (tpv > 0 && slv > 0 && item.avg > slv) { const rr = (tpv - item.avg) / (item.avg - slv); lines.push(`손익비 <b>${rr.toFixed(2)} : 1</b> ${rr >= 2 ? '(양호)' : rr >= 1 ? '(보통)' : '(불리 — 손실폭이 더 큼)'}`); }
+    out.innerHTML = lines.join(' · ') || '<span style="color:var(--muted)">익절·손절가를 입력하면 예상 손익이 계산됩니다.</span>';
+  };
+  tpI.oninput = calc; slI.oninput = calc; calc();
+}
+
+// ── 리스크 지표 (베타·연변동성·최대낙폭 MDD) ──
+function riskFromBars(bars) {
+  const closes = bars.map(b => b.close).filter(v => v != null);
+  if (closes.length < 30) return null;
+  const rets = [];
+  for (let i = 1; i < closes.length; i++) rets.push(closes[i] / closes[i - 1] - 1);
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const variance = rets.reduce((a, r) => a + (r - mean) ** 2, 0) / rets.length;
+  const volAnnual = Math.sqrt(variance) * Math.sqrt(252) * 100;
+  // 최대낙폭(MDD)
+  let peak = closes[0], mdd = 0;
+  closes.forEach(c => { if (c > peak) peak = c; const dd = (c - peak) / peak; if (dd < mdd) mdd = dd; });
+  return { volAnnual, mdd: mdd * 100, rets };
+}
+async function fillRiskMetrics(item) {
+  const zone = document.getElementById('tech-risk');
+  if (!zone || !techState || techState.item !== item) return;
+  const r = riskFromBars(techState.bars.slice(-252)); // 최근 1년
+  if (!r) return;
+  // 베타: 지수 수익률과 공분산 (KR=코스피, 그 외=S&P500)
+  let beta = null;
+  try {
+    const idxSym = isKorean(item.symbol) ? '^KS11' : '^GSPC';
+    const ir = await fetchChart(idxSym, '1y', '1d');
+    const ic = (ir.indicators.quote[0].close || []).filter(v => v != null);
+    const iret = []; for (let i = 1; i < ic.length; i++) iret.push(ic[i] / ic[i - 1] - 1);
+    const n = Math.min(r.rets.length, iret.length);
+    const sR = r.rets.slice(-n), iR = iret.slice(-n);
+    const sM = sR.reduce((a, b) => a + b, 0) / n, iM = iR.reduce((a, b) => a + b, 0) / n;
+    let cov = 0, ivar = 0;
+    for (let i = 0; i < n; i++) { cov += (sR[i] - sM) * (iR[i] - iM); ivar += (iR[i] - iM) ** 2; }
+    if (ivar > 0) beta = cov / ivar;
+  } catch (e) {}
+  if (detailItem !== item) return;
+  const volCls = r.volAnnual > 45 ? 'bad' : r.volAnnual > 25 ? 'mid' : 'good';
+  const mddCls = r.mdd < -40 ? 'bad' : r.mdd < -25 ? 'mid' : 'good';
+  const betaCls = beta == null ? '' : beta > 1.3 ? 'bad' : beta > 0.8 ? 'mid' : 'good';
+  zone.innerHTML = `<div class="hf-title" style="font-size:0.92rem;margin-top:18px">⚖️ 리스크 지표 <span style="color:var(--muted);font-weight:400">— 최근 1년 일봉 기준</span></div>
+    <div class="metric-grid">
+      <div class="metric"><div class="k">연 변동성</div><div class="v ${volCls}">${r.volAnnual.toFixed(1)}%</div></div>
+      <div class="metric"><div class="k">최대낙폭 (MDD)</div><div class="v ${mddCls}">${r.mdd.toFixed(1)}%</div></div>
+      <div class="metric"><div class="k">베타 (vs ${isKorean(item.symbol) ? '코스피' : 'S&P500'})</div><div class="v ${betaCls}">${beta == null ? '—' : beta.toFixed(2)}</div></div>
+    </div>
+    <div class="unit-note">변동성↑·MDD가 클수록 가격 출렁임이 큽니다. 베타 1 초과면 지수보다 더 민감하게 움직입니다. <b>최대낙폭은 1년 내 고점에서 최대 ${Math.abs(r.mdd).toFixed(0)}% 하락한 적이 있다는 뜻</b>으로, 하락장 감내 수준을 가늠하는 지표입니다.</div>`;
+}
+
+// ── 동종업계 비교 표 (industryCompareInfo) ──
+function peerCompareHTML(d, item) {
+  const peers = (d.industryCompare || []).slice(0, 8);
+  if (!peers.length) return '';
+  const num = s => { const n = parseFloat(String(s == null ? '' : s).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
+  let h = `<div class="fund-divider">🏭 동종업계 비교 <span style="font-weight:400;font-size:0.76rem;color:var(--muted)">— 같은 업종 주요 종목의 당일 등락</span></div>`;
+  h += `<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>종목</th><th>현재가</th><th>등락률</th></tr></thead><tbody>`;
+  peers.forEach(p => {
+    const chg = num(p.fluctuationsRatio);
+    const cls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+    h += `<tr><td>${esc(p.stockName || '')}</td><td>${esc(p.closePrice || '—')}</td><td class="${cls}">${chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—'}</td></tr>`;
+  });
+  h += `</tbody></table></div><div class="unit-note">같은 업종 내 상대 비교입니다. 내 종목이 동종 대비 부진한지/우위인지 가늠하는 데 참고하세요.</div>`;
+  return h;
 }
 
 // ── ② 재무 분석 탭 (가이던스 + 투자적합도 + 실적·재무제표 통합) ──
@@ -442,6 +581,7 @@ function renderFundTab(d, item) {
   if (d.quarter) html += '<button data-p="quarter">분기</button>';
   html += '</div><canvas class="fin-chart" id="fin-chart"></canvas><div class="fin-legend" id="fin-legend"></div>';
   html += '<div class="fin-table-wrap" id="fin-table-wrap"></div><div class="unit-note">단위: ' + d.unit + ' · (E)는 컨센서스 추정치</div>';
+  html += peerCompareHTML(d, item); // 동종업계 비교
   el.innerHTML = html;
   el.querySelector('.fin-toggle').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -724,8 +864,10 @@ function buildTechUI(el) {
       </div>`).join('') + `</div>
     <div class="disclaimer">⚠️ 기술적 지표는 과거 가격·거래량의 통계일 뿐 미래 수익을 보장하지 않습니다.
       RSI 30/70, MACD 시그널 교차, 골든크로스, 볼린저밴드 ±2σ 등 일반적으로 통용되는 표준 기준을 적용했습니다.
-      단일 신호보다 여러 신호의 방향과 재무 분석을 함께 보세요. 투자 판단과 책임은 본인에게 있습니다.</div>`;
+      단일 신호보다 여러 신호의 방향과 재무 분석을 함께 보세요. 투자 판단과 책임은 본인에게 있습니다.</div>
+    <div id="tech-risk"></div>`;
   el.innerHTML = html;
+  fillRiskMetrics(techState.item); // 리스크 지표 (베타·변동성·MDD, 지수 비동기)
   el.querySelector('#tech-range').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
