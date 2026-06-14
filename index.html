@@ -43,12 +43,24 @@
   <div id="top-insights"><div class="loading">오늘의 핵심 이슈를 분석하는 중…</div></div>
 </div>
 
-<!-- ════════ 🌐 거시 관점 — 시장 전체 ════════ -->
-<div class="perspective-banner macro">
-  <span class="pb-icon">🌐</span>
-  <span class="pb-title">거시 — 시장 전체</span>
-  <span class="pb-sub" id="macro-pb-sub">지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다</span>
+<!-- ════════ 거시 / 미시 탭 ════════ -->
+<div class="view-tabs" id="view-tabs" role="tablist" aria-label="거시 / 미시 관점 전환">
+  <button class="view-tab active" data-view="macro" role="tab" aria-selected="true" aria-controls="macro-view">
+    <span class="vt-icon">🌐</span>
+    <span class="vt-text"><b>거시</b><small>시장 전체</small></span>
+    <span class="vt-score" id="vt-score-macro" title="국내외 지수·VIX·금리를 종합한 거시 환경 점수"></span>
+  </button>
+  <button class="view-tab" data-view="micro" role="tab" aria-selected="false" aria-controls="micro-view" tabindex="-1">
+    <span class="vt-icon">🎯</span>
+    <span class="vt-text"><b>미시</b><small>내 종목</small></span>
+    <span class="vt-score" id="vt-score-micro" title="관심종목의 당일·1개월 모멘텀 점수"></span>
+  </button>
+  <span class="vt-overall" id="vt-overall" title="거시 환경·관심종목 모멘텀·시장 뉴스를 가중 평균한 오늘의 종합 투자 환경 점수"></span>
 </div>
+<div class="view-sub" id="view-sub">지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다</div>
+
+<!-- ════════ 🌐 거시 관점 — 시장 전체 ════════ -->
+<div class="view-pane" id="macro-view" role="tabpanel" aria-label="거시 — 시장 전체">
 
 <!-- 거시 지표 칩 (클릭 → 지수/지표 상세) -->
 <div class="macro-strip" id="macro-strip"></div>
@@ -83,12 +95,10 @@
   </div>
 </div>
 
+</div><!-- /#macro-view -->
+
 <!-- ════════ 🎯 미시 관점 — 내 종목 ════════ -->
-<div class="perspective-banner micro">
-  <span class="pb-icon">🎯</span>
-  <span class="pb-title">미시 — 내 종목</span>
-  <span class="pb-sub">관심종목·보유 현황 · 칩이나 카드를 누르면 종목 상세가 열립니다</span>
-</div>
+<div class="view-pane" id="micro-view" role="tabpanel" aria-label="미시 — 내 종목" hidden>
 
 <!-- 관심종목 지수형 칩 스트립 (한눈에 보기) -->
 <div class="wl-strip" id="wl-strip"></div>
@@ -148,6 +158,8 @@
     <div class="panel news-panel" id="symbol-news"><div class="loading">불러오는 중…</div></div>
   </div>
 </div>
+
+</div><!-- /#micro-view -->
 
 </main>
 

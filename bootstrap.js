@@ -132,6 +132,44 @@ function applyInitialSectionSettings() {
   if (tabs) tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (b) renderDiscovery(b.dataset.rank, false); });
 })();
 
+// 거시 / 미시 관점 탭 전환
+(() => {
+  const tabs = document.getElementById('view-tabs');
+  if (!tabs) return;
+  const sub = document.getElementById('view-sub');
+  const SUBTEXT = {
+    macro: '지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다',
+    micro: '관심종목·보유 현황 · 칩이나 카드를 누르면 종목 상세가 열립니다'
+  };
+  function switchView(view) {
+    if (view !== 'macro' && view !== 'micro') view = 'macro';
+    tabs.querySelectorAll('.view-tab').forEach(b => {
+      const on = b.dataset.view === view;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+    const mv = document.getElementById('macro-view'), mi = document.getElementById('micro-view');
+    if (mv) mv.hidden = view !== 'macro';
+    if (mi) mi.hidden = view !== 'micro';
+    if (sub) sub.textContent = SUBTEXT[view] || '';
+    try { localStorage.setItem('active-view', view); } catch (e) {}
+  }
+  tabs.addEventListener('click', e => { const b = e.target.closest('.view-tab'); if (b) switchView(b.dataset.view); });
+  tabs.addEventListener('keydown', e => { // ← → 로 탭 이동
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const cur = tabs.querySelector('.view-tab.active');
+    const next = cur && cur.dataset.view === 'macro' ? 'micro' : 'macro';
+    switchView(next);
+    const btn = tabs.querySelector('.view-tab[data-view="' + next + '"]');
+    if (btn) btn.focus();
+  });
+  let saved = 'macro';
+  try { saved = localStorage.getItem('active-view') || 'macro'; } catch (e) {}
+  switchView(saved);
+})();
+
 // ───────────────────────── 초기화 ─────────────────────────
 document.getElementById('today').textContent =
   new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });

@@ -250,14 +250,36 @@ function scoreMarketNewsVal() {
   };
 }
 
+// 거시/미시 탭 라벨 옆 점수 배지 + 종합 점수 갱신
+function updateViewTabScores(parts, overall) {
+  const setBadge = (id, sc) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (sc == null) { el.textContent = ''; el.className = 'vt-score'; return; }
+    el.textContent = sc;
+    el.className = 'vt-score ' + scoreGrade(sc).cls;
+  };
+  setBadge('vt-score-macro', parts.macro ? parts.macro.score : null);     // 거시 환경 점수
+  setBadge('vt-score-micro', parts.momentum ? parts.momentum.score : null); // 내 종목 모멘텀 점수
+  const ov = document.getElementById('vt-overall');
+  if (ov) {
+    if (overall == null) { ov.innerHTML = ''; }
+    else {
+      const label = overall >= 65 ? '우호' : overall >= 45 ? '중립' : '주의';
+      ov.innerHTML = `오늘 평가 <b class="${scoreGrade(overall).cls}">${overall}</b> · ${label}`;
+    }
+  }
+}
+
 function renderMainInfographic() {
   const el = document.getElementById('main-infographic');
   if (!el) return;
   const parts = { macro: scoreMacroVal(), momentum: scoreWatchlistMomentum(), news: scoreMarketNewsVal() };
   let wsum = 0, acc = 0, used = 0;
   MAIN_DIMS.forEach(d => { const p = parts[d.key]; if (p) { acc += p.score * d.weight; wsum += d.weight; used++; } });
+  const score = wsum ? Math.round(acc / wsum) : null;
+  updateViewTabScores(parts, score); // 거시/미시 탭 배지 + 종합 점수 갱신
   if (!wsum) { el.innerHTML = '<div class="loading">종합 투자 환경을 분석하는 중…</div>'; return; }
-  const score = Math.round(acc / wsum);
   const g = scoreGrade(score);
   const verdict = score >= 65 ? '위험 선호 — 우호적 환경' : score >= 45 ? '중립 — 관망 구간' : '위험 회피 — 신중 필요';
   const R = 54, CIRC = 2 * Math.PI * R;
