@@ -136,7 +136,8 @@ function computeBuyScanScore(bars, item) {
   const volMult = patternRaw > 0
     ? (volRatio >= 2.0 ? 1.5 : volRatio >= 1.5 ? 1.3 : volRatio >= 1.0 ? 1.0 : 0.7)
     : 1.0;
-  const candleVolScore = Math.min(100, patternRaw > 0 ? patternBase * volMult : 15);
+  const noPatternBase = volRatio >= 2.0 ? 40 : volRatio >= 1.5 ? 25 : 15;
+  const candleVolScore = Math.min(100, patternRaw > 0 ? patternBase * volMult : noPatternBase);
 
   // ② 추세 · 눌림목 [가중 20%] ─────────────────────────────
   let trendScore = 45;
@@ -412,9 +413,14 @@ function paintBuyScanResult(el, result, item) {
           </div></div>`;
         });
       } else {
-        detailHtml += `<div class="bst-metric"><span class="sm-dot"></span><div class="sm-body">
-          <div class="sm-top"><span class="sm-label">감지된 패턴 없음</span></div>
-          <div class="sm-why">오늘 기준 주요 반전 캔들 패턴이 발견되지 않았습니다.</div>
+        const noPatDot = vr >= 1.5 ? 'mid' : '';
+        const noPatLabel = vr >= 1.5 ? '패턴 대기 구간' : '감지된 패턴 없음';
+        const noPatWhy = vr >= 1.5
+          ? '거래량 급증이 선행 중입니다. 반전 캔들 패턴이 출현하면 강한 진입 신호가 됩니다.'
+          : '오늘 기준 주요 반전 캔들 패턴이 발견되지 않았습니다.';
+        detailHtml += `<div class="bst-metric"><span class="sm-dot ${noPatDot}"></span><div class="sm-body">
+          <div class="sm-top"><span class="sm-label">${noPatLabel}</span></div>
+          <div class="sm-why">${noPatWhy}</div>
         </div></div>`;
       }
     } else {
