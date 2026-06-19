@@ -65,6 +65,9 @@
 <!-- 거시 지표 칩 (클릭 → 지수/지표 상세) -->
 <div class="macro-strip" id="macro-strip"></div>
 
+<!-- 장단기 금리 스프레드 배너 (10Y-3M, 역전 시 경고) -->
+<div class="yield-spread-banner" id="yield-spread-banner" hidden></div>
+
 <!-- 종합 투자 환경 인포그래픽 -->
 <div class="section" id="infographic-section">
   <div id="main-infographic"><div class="loading">종합 투자 환경을 분석하는 중…</div></div>
@@ -219,6 +222,9 @@
   </div>
 </div>
 
+<!-- 기술적매수 알람 배너 (스크롤 따라다님) -->
+<div id="buyscan-alert-banner" hidden role="alert" aria-live="polite"></div>
+
 <!-- 종목 상세 모달 -->
 <div class="detail-overlay" id="detail-overlay" role="presentation">
   <div class="detail-sheet" role="dialog" aria-modal="true" aria-labelledby="d-name" tabindex="-1">
@@ -235,12 +241,13 @@
       <button class="d-close" id="d-close" title="닫기">✕</button>
     </div>
     <div class="detail-tabs" id="detail-tabs" role="tablist" aria-label="종목 상세 탭">
-      <button data-tab="summary" class="active" role="tab" aria-selected="true" aria-controls="tab-summary">종합</button>
+      <button data-tab="summary" class="active" role="tab" aria-selected="true" aria-controls="tab-summary">종합<span class="tab-score-badge" id="tbadge-summary"></span></button>
       <button data-tab="overview" role="tab" aria-selected="false" aria-controls="tab-overview">개요</button>
-      <button data-tab="fund" role="tab" aria-selected="false" aria-controls="tab-fund">재무</button>
-      <button data-tab="tech" role="tab" aria-selected="false" aria-controls="tab-tech">기술</button>
+      <button data-tab="fund" role="tab" aria-selected="false" aria-controls="tab-fund">재무<span class="tab-score-badge" id="tbadge-fund"></span></button>
+      <button data-tab="tech" role="tab" aria-selected="false" aria-controls="tab-tech">기술<span class="tab-score-badge" id="tbadge-tech"></span></button>
       <button data-tab="future" role="tab" aria-selected="false" aria-controls="tab-future">전망</button>
-      <button data-tab="news" role="tab" aria-selected="false" aria-controls="tab-news">뉴스</button>
+      <button data-tab="news" role="tab" aria-selected="false" aria-controls="tab-news">뉴스<span class="tab-score-badge" id="tbadge-news"></span></button>
+      <button data-tab="buyscan" role="tab" aria-selected="false" aria-controls="tab-buyscan">기술적매수</button>
     </div>
     <div class="detail-body">
       <div class="d-tab" id="tab-summary" role="tabpanel"></div>
@@ -249,6 +256,7 @@
       <div class="d-tab" id="tab-tech" role="tabpanel" hidden></div>
       <div class="d-tab" id="tab-future" role="tabpanel" hidden></div>
       <div class="d-tab" id="tab-news" role="tabpanel" hidden></div>
+      <div class="d-tab" id="tab-buyscan" role="tabpanel" hidden></div>
     </div>
   </div>
 </div>
@@ -256,6 +264,7 @@
 <script src="core.js"></script>
 <script src="market.js"></script>
 <script src="detail.js"></script>
+<script src="buyscan.js"></script>
 <script src="score-engine.js"></script>
 <script src="widgets.js"></script>
 <script src="bootstrap.js"></script>

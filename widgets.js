@@ -227,7 +227,7 @@ const RANK_DEFS = {
 };
 let discoveryCache = {};
 let discoveryMode = 'up';
-let screenerF = { minP: null, maxP: null, minC: null, maxC: null };
+let screenerF = { minP: null, maxP: null, minC: null, maxC: null, mkt: '' };
 const numK = s => { const n = parseFloat(String(s == null ? '' : s).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
 
 async function fetchRanking(api, noCache) {
@@ -283,34 +283,66 @@ async function renderDiscovery(mode, noCache) {
   }
 }
 
+async function buildScreenerUniverse(noCache) {
+  const [mv, up, dn] = await Promise.allSettled([
+    fetchRanking('marketValue', noCache),
+    fetchRanking('up', noCache),
+    fetchRanking('down', noCache)
+  ]);
+  const seen = new Set();
+  const uni = [];
+  [mv, up, dn].forEach(r => {
+    if (r.status === 'fulfilled') r.value.forEach(s => { if (!seen.has(s.symbol)) { seen.add(s.symbol); uni.push(s); } });
+  });
+  return uni;
+}
+
 function renderScreener(noCache) {
   const el = document.getElementById('discovery-list');
   if (!el) return;
   el.innerHTML = `<div class="screener-filter">
+    <div class="scr-row">
+      <span class="scr-label">거래소</span>
+      <div class="scr-mkt-btns" id="scr-mkt-btns">
+        <button data-mkt="" class="${screenerF.mkt === '' ? 'active' : ''}">전체</button>
+        <button data-mkt="KS" class="${screenerF.mkt === 'KS' ? 'active' : ''}">코스피</button>
+        <button data-mkt="KQ" class="${screenerF.mkt === 'KQ' ? 'active' : ''}">코스닥</button>
+      </div>
+    </div>
     <label>주가 ₩ <input type="number" id="scr-minp" placeholder="최소" value="${screenerF.minP == null ? '' : screenerF.minP}"> ~ <input type="number" id="scr-maxp" placeholder="최대" value="${screenerF.maxP == null ? '' : screenerF.maxP}"></label>
     <label>등락률 % <input type="number" id="scr-minc" placeholder="최소" value="${screenerF.minC == null ? '' : screenerF.minC}"> ~ <input type="number" id="scr-maxc" placeholder="최대" value="${screenerF.maxC == null ? '' : screenerF.maxC}"></label>
     <button class="screener-reset" id="scr-reset">초기화</button>
-  </div><div id="scr-result"><div class="loading">시총 상위 종목을 불러오는 중…</div></div>`;
+  </div><div id="scr-result"><div class="loading">종목 데이터를 불러오는 중…</div></div>`;
   ['scr-minp', 'scr-maxp', 'scr-minc', 'scr-maxc'].forEach(id => { const i = el.querySelector('#' + id); if (i) i.onchange = applyScreener; });
-  el.querySelector('#scr-reset').onclick = () => { screenerF = { minP: null, maxP: null, minC: null, maxC: null }; renderScreener(); };
-  fetchRanking('marketValue', noCache).then(applyScreener).catch(() => {
+  el.querySelector('#scr-reset').onclick = () => { screenerF = { minP: null, maxP: null, minC: null, maxC: null, mkt: '' }; renderScreener(); };
+  el.querySelector('#scr-mkt-btns').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    screenerF.mkt = b.dataset.mkt;
+    el.querySelectorAll('#scr-mkt-btns button').forEach(x => x.classList.toggle('active', x === b));
+    applyScreener();
+  });
+  buildScreenerUniverse(noCache).then(() => applyScreener()).catch(() => {
     const r = el.querySelector('#scr-result'); if (r) r.innerHTML = '<div class="loading">데이터 로드 실패 <button class="retry-inline" onclick="renderScreener(true)">다시 시도</button></div>';
   });
 }
 function applyScreener() {
   const el = document.getElementById('discovery-list'); if (!el) return;
   const g = id => { const i = el.querySelector('#' + id); const v = i ? parseFloat(i.value) : NaN; return isNaN(v) ? null : v; };
-  screenerF = { minP: g('scr-minp'), maxP: g('scr-maxp'), minC: g('scr-minc'), maxC: g('scr-maxc') };
-  const uni = discoveryCache['marketValue'] || [];
+  screenerF.minP = g('scr-minp'); screenerF.maxP = g('scr-maxp');
+  screenerF.minC = g('scr-minc'); screenerF.maxC = g('scr-maxc');
+  const seen = new Set(), uni = [];
+  ['marketValue', 'up', 'down'].forEach(k => { (discoveryCache[k] || []).forEach(s => { if (!seen.has(s.symbol)) { seen.add(s.symbol); uni.push(s); } }); });
   const out = uni.filter(s =>
+    (screenerF.mkt === '' || s.symbol.endsWith('.' + screenerF.mkt)) &&
     (screenerF.minP == null || s.price >= screenerF.minP) &&
     (screenerF.maxP == null || s.price <= screenerF.maxP) &&
     (screenerF.minC == null || s.chg >= screenerF.minC) &&
     (screenerF.maxC == null || s.chg <= screenerF.maxC));
   const res = el.querySelector('#scr-result'); if (!res) return;
+  const total = seen.size;
   res.innerHTML = out.length
-    ? '<div class="discovery-grid">' + out.slice(0, 12).map(s => diCard(s, '시총상위 · 조건 충족')).join('') + '</div>'
-    : '<div class="loading">조건에 맞는 종목이 없습니다. (유니버스: 코스피 시총 상위 30)</div>';
+    ? '<div class="discovery-grid">' + out.slice(0, 15).map(s => diCard(s, (s.symbol.endsWith('.KS') ? '코스피' : '코스닥') + ' · 조건 충족')).join('') + '</div>'
+    : `<div class="loading">조건에 맞는 종목이 없습니다. (유니버스: ${total}개 · 시총상위+급등+급락 통합)</div>`;
   bindDiCards(res);
   stampAsof('discovery-asof');
 }

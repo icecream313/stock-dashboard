@@ -51,11 +51,12 @@ async function loadDetailData(item) {
       infos: integ.totalInfos || [],
       consensus: integ.consensusInfo,
       annual: annual.financeInfo, quarter,
+      cashflow: null, // 네이버 API 현금흐름 미지원 (HTTP 400) — buildCashflowHTML은 null 시 생략
       researches: integ.researches || [],
       profile: cs ? [cs.comment1, cs.comment2, cs.comment3].filter(Boolean).join(' ') : null,
       unit: '억원 · %, 배 생략',
-      dealTrend: integ.dealTrendInfos || [],          // 외인·기관·개인 수급 (국내 전용)
-      industryCompare: integ.industryCompareInfo || [] // 동종 업종 비교
+      dealTrend: integ.dealTrendInfos || [],
+      industryCompare: integ.industryCompareInfo || []
     };
   } else {
     const reuters = item.reuters || await resolveReuters(item.symbol);
@@ -128,7 +129,7 @@ function focusModalSheet() {
 function openDetail(item) {
   if (item.isIndex) return openIndexDetail(item);
   detailItem = item;
-  setTabsVisible(['summary', 'overview', 'fund', 'tech', 'future', 'news']); // 종목: 전체 탭
+  setTabsVisible(['summary', 'overview', 'fund', 'tech', 'future', 'news', 'buyscan']); // 종목: 전체 탭
   overlay.classList.add('open');
   focusModalSheet();
   document.body.style.overflow = 'hidden';
@@ -153,11 +154,25 @@ function openDetail(item) {
   document.getElementById('tab-future').innerHTML = '<div class="d-loading">불러오는 중…</div>';
   loadNews(document.getElementById('tab-news'), newsTargetFor(item));
   renderTechTab(item); // 기술 분석은 야후 데이터만 쓰므로 독립적으로 로드
+  if (typeof clearBuyScanTabBadge === 'function') clearBuyScanTabBadge();
+  renderBuyScanTab(item); // 기술적매수 탭 (캐시 있으면 즉시, 없으면 백그라운드 fetch)
   // 재무 데이터 로드 (네이버)
   detailData = null;
   loadDetailData(item).then(d => {
     if (detailItem !== item) return; // 그 사이 다른 종목을 열었으면 무시
     detailData = d;
+    // 헤더 퀵뷰: 시총·PER·목표가 업사이드
+    try {
+      const mktCap = infoVal(d.infos, '시총');
+      const per = infoVal(d.infos, 'PER');
+      const tgt = d.consensus && numOf(d.consensus.priceTargetMean);
+      const cur = quoteCache[item.symbol] && quoteCache[item.symbol].price;
+      const qvParts = [item.symbol];
+      if (mktCap && mktCap !== 'N/A') qvParts.push('시총 ' + mktCap);
+      if (per && per !== 'N/A') qvParts.push('PER ' + per);
+      if (tgt && cur) { const up = (tgt - cur) / cur * 100; qvParts.push('목표 ' + fmtPrice(tgt, item.symbol) + ' (' + (up >= 0 ? '+' : '') + up.toFixed(1) + '%)'); }
+      document.getElementById('d-sub').textContent = qvParts.join(' · ');
+    } catch (_) {}
     if (d.basic && d.basic.itemLogoPngUrl) {
       logo.src = d.basic.itemLogoPngUrl;
       logo.classList.remove('hidden');
@@ -181,6 +196,10 @@ function closeDetail() {
   detailItem = null;
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+  ['summary', 'fund', 'tech', 'news'].forEach(tab => {
+    const el = document.getElementById('tbadge-' + tab);
+    if (el) { el.textContent = ''; el.className = 'tab-score-badge'; }
+  });
   if (lastFocusEl && lastFocusEl.offsetParent !== null) { try { lastFocusEl.focus(); } catch (e) {} }
 }
 
@@ -293,6 +312,7 @@ function switchTab(name) {
   // 숨겨진 상태에선 캔버스 크기가 0이라, 해당 탭이 보일 때 차트를 다시 그린다
   if (name === 'fund' && detailData && document.getElementById('fin-chart')) drawFinance(detailData);
   if (name === 'tech') drawTechChart();
+  if (name === 'buyscan' && detailItem) renderBuyScanTab(detailItem);
 }
 document.getElementById('detail-tabs').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -571,6 +591,49 @@ function buildGuidanceHTML(d, item) {
   return h;
 }
 
+function buildCashflowHTML(d) {
+  if (!d.cashflow) return '';
+  const CF_MAIN = ['영업활동현금흐름', '투자활동현금흐름', '재무활동현금흐름'];
+  const CAPEX_KEY = '설비투자';
+  const rows = CF_MAIN.map(t => ({ title: t, data: finSeries(d.cashflow, t) })).filter(r => r.data.some(x => x.value != null));
+  if (!rows.length) return '';
+  const cols = (d.cashflow.trTitleList || []).filter(c => c.isConsensus !== 'Y');
+  if (!cols.length) return '';
+  const opCF = finSeries(d.cashflow, '영업활동현금흐름');
+  const capexSeries = finSeries(d.cashflow, CAPEX_KEY);
+  const hasFCF = opCF.some(x => x.value != null) && capexSeries.some(x => x.value != null);
+  let h = `<div class="fund-divider">💵 현금흐름표 <span style="font-weight:400;font-size:0.76rem;color:var(--muted)">— 영업·투자·재무CF · 단위: 억원</span></div>`;
+  h += `<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>항목</th>`;
+  cols.forEach(c => { h += `<th>${c.title}</th>`; });
+  h += `</tr></thead><tbody>`;
+  rows.forEach(r => {
+    h += `<tr><td>${r.title}</td>`;
+    cols.forEach(c => {
+      const it = r.data.find(x => x.label === c.title);
+      const v = it ? it.value : null;
+      if (v == null) { h += `<td>—</td>`; return; }
+      const cls = v > 0 ? 'up' : v < 0 ? 'down' : '';
+      h += `<td class="${cls}">${fmtNum(v)}</td>`;
+    });
+    h += `</tr>`;
+  });
+  if (hasFCF) {
+    h += `<tr><td><b>잉여현금흐름 (FCF)</b></td>`;
+    cols.forEach(c => {
+      const op = opCF.find(x => x.label === c.title);
+      const cx = capexSeries.find(x => x.label === c.title);
+      if (!op || op.value == null) { h += `<td>—</td>`; return; }
+      const fcf = op.value - (cx && cx.value != null ? Math.abs(cx.value) : 0);
+      const cls = fcf > 0 ? 'good' : fcf < 0 ? 'bad' : '';
+      h += `<td class="${cls}"><b>${fmtNum(fcf)}</b></td>`;
+    });
+    h += `</tr>`;
+  }
+  h += `</tbody></table></div>`;
+  h += `<div class="unit-note">영업CF &gt; 0 지속 + FCF &gt; 0 = 실질 현금 창출. 투자CF 음수는 설비투자 활발한 것으로 성장주에선 정상입니다.</div>`;
+  return h;
+}
+
 let finPeriod = 'annual';
 function renderFundTab(d, item) {
   const el = document.getElementById('tab-fund');
@@ -581,7 +644,8 @@ function renderFundTab(d, item) {
   if (d.quarter) html += '<button data-p="quarter">분기</button>';
   html += '</div><canvas class="fin-chart" id="fin-chart"></canvas><div class="fin-legend" id="fin-legend"></div>';
   html += '<div class="fin-table-wrap" id="fin-table-wrap"></div><div class="unit-note">단위: ' + d.unit + ' · (E)는 컨센서스 추정치</div>';
-  html += peerCompareHTML(d, item); // 동종업계 비교
+  html += peerCompareHTML(d, item);
+  html += buildCashflowHTML(d);
   el.innerHTML = html;
   el.querySelector('.fin-toggle').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -1519,6 +1583,28 @@ function paintSummary(el, d, item, parts, flags) {
   if (comp) renderAiZone(item, d, parts, comp);
   // 대화형 질문은 최종 렌더 시에만 (진행 중 입력이 초기화되지 않게)
   if (comp && !flags.techPending && !flags.newsPending) renderStockChat(item, d, parts, comp);
+  updateTabBadges(parts, comp);
+}
+
+function updateTabBadges(parts, comp) {
+  const map = {
+    'summary':  comp ? comp.score : null,
+    'fund':     parts.finance   ? parts.finance.score   : null,
+    'tech':     parts.technical ? parts.technical.score : null,
+    'news':     parts.news      ? parts.news.score      : null,
+  };
+  for (const [tab, score] of Object.entries(map)) {
+    const el = document.getElementById('tbadge-' + tab);
+    if (!el) continue;
+    if (score != null) {
+      const g = scoreGrade(score);
+      el.textContent = score;
+      el.className = 'tab-score-badge ' + g.cls;
+    } else {
+      el.textContent = '';
+      el.className = 'tab-score-badge';
+    }
+  }
 }
 
 // ── 종목 상세 대화형 AI 질의 ──

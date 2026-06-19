@@ -2,23 +2,37 @@
 async function renderMacro(noCache) {
   const strip = document.getElementById('macro-strip');
   if (!strip.children.length) {
-    MACRO.forEach(m => {
-      const chip = document.createElement('div');
-      chip.className = 'macro-chip clickable';
-      chip.id = 'macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, '');
-      chip.innerHTML = `<div class="label">${m.label}</div><div class="price">…</div><div class="chg flat">—</div>`;
-      chip.setAttribute('role', 'button');
-      chip.setAttribute('tabindex', '0');
-      chip.setAttribute('aria-label', m.label + ' 상세');
-      chip.onclick = () => openDetail(macroItem(m));
-      chip.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(macroItem(m)); } };
-      strip.appendChild(chip);
+    MACRO_GROUPS.forEach(g => {
+      const row = document.createElement('div');
+      row.className = 'macro-group-row';
+      row.dataset.group = g.key;
+      const lbl = document.createElement('div');
+      lbl.className = 'macro-group-label';
+      lbl.textContent = g.label;
+      const chipsWrap = document.createElement('div');
+      chipsWrap.className = 'macro-group-chips';
+      MACRO.filter(m => m.group === g.key).forEach(m => {
+        const chip = document.createElement('div');
+        chip.className = 'macro-chip clickable';
+        chip.id = 'macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, '');
+        chip.innerHTML = `<div class="label">${m.label}</div><div class="price">…</div><div class="chg flat">—</div>`;
+        chip.setAttribute('role', 'button');
+        chip.setAttribute('tabindex', '0');
+        chip.setAttribute('aria-label', m.label + ' 상세');
+        chip.onclick = () => openDetail(macroItem(m));
+        chip.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(macroItem(m)); } };
+        chipsWrap.appendChild(chip);
+      });
+      row.appendChild(lbl);
+      row.appendChild(chipsWrap);
+      strip.appendChild(row);
     });
   }
   try {
     const data = await fetchSpark(MACRO.map(m => m.symbol), '1d', '15m', noCache);
     MACRO.forEach(m => {
       const chip = document.getElementById('macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, ''));
+      if (!chip) return;
       const d = data[m.symbol];
       if (!d) { chip.querySelector('.price').textContent = '—'; return; }
       const price = lastValid(d.close);
@@ -32,11 +46,26 @@ async function renderMacro(noCache) {
     });
     const sub = document.getElementById('macro-pb-sub');
     if (sub) sub.innerHTML = '지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다 · <span style="color:var(--accent)">🕒 기준 ' + fmtClock(Date.now()) + '</span>';
+    updateYieldSpread();
     if (typeof renderMainInfographic === 'function') renderMainInfographic();
     if (typeof renderTopInsights === 'function') renderTopInsights();
   } catch (e) {
     document.querySelectorAll('.macro-chip .price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
   }
+}
+
+function updateYieldSpread() {
+  const t10 = macroData['^TNX'], t3m = macroData['^IRX'];
+  const banner = document.getElementById('yield-spread-banner');
+  if (!banner) return;
+  if (!t10 || t10.price == null || !t3m || t3m.price == null) { banner.hidden = true; return; }
+  const spread = t10.price - t3m.price;
+  const inverted = spread < 0;
+  banner.hidden = false;
+  banner.className = 'yield-spread-banner' + (inverted ? ' inverted' : ' normal');
+  banner.innerHTML = inverted
+    ? `⚠️ <b>장단기 금리 역전</b> — 미국채 10년(${t10.price.toFixed(2)}%) vs 3개월(${t3m.price.toFixed(2)}%), 스프레드 <b>${spread.toFixed(2)}%p</b>. 역전은 과거 경기침체 선행지표로 알려져 있습니다.`
+    : `미국채 금리 스프레드 (10Y − 3M): <b class="good">+${spread.toFixed(2)}%p</b> — 정상 상태`;
 }
 
 // ───────────────────────── ② 관심종목 카드 ─────────────────────────
@@ -164,13 +193,15 @@ function renderWatchlistStrip() {
   });
 }
 
-// 모든 카드를 spark 1회 호출로 채운다
+// 모든 카드를 spark 호출로 채운다
+// ① 3mo/1d — 스파크라인·기간별 수익률용 (일봉)
+// ② 1d/15m — 장중 실시간 시세 + 전일 종가 대비 등락용 (매크로 칩과 동일 방식)
 async function fillCards(noCache) {
   if (!watchlist.length) return;
-  let data = null;
-  try {
-    data = await fetchSpark(watchlist.map(w => w.symbol), '3mo', '1d', noCache);
-  } catch (e) {}
+  const syms = watchlist.map(w => w.symbol);
+  let data = null, intraday = null;
+  try { data = await fetchSpark(syms, '3mo', '1d', noCache); } catch (e) {}
+  try { intraday = await fetchSpark(syms, '1d', '15m', noCache); } catch (e) {}
   watchlist.forEach(item => {
     const card = document.querySelector(`.card[data-symbol="${CSS.escape(item.symbol)}"]`);
     if (!card) return;
@@ -185,12 +216,16 @@ async function fillCards(noCache) {
       if (rb) rb.onclick = e => { e.stopPropagation(); fillCards(true); };
       return;
     }
-    const price = closes[closes.length - 1];
-    const prev = closes.length > 1 ? closes[closes.length - 2] : null; // 전일 종가
-    // 기간별 수익률: 1주(5거래일) · 1개월(21거래일) · 3개월(전체)
+    // 장중 데이터가 있으면 인트라데이 시세 + previousClose로 당일 등락 계산
+    const id = intraday && intraday[item.symbol];
+    const idPrice = id ? lastValid(id.close) : null;
+    const price = idPrice != null ? idPrice : closes[closes.length - 1];
+    const prev = id && id.previousClose ? id.previousClose
+      : (closes.length > 1 ? closes[closes.length - 2] : null);
+    // 기간별 수익률: 1주(5거래일) · 1개월(21거래일) · 3개월(전체) — 일봉 기준
     const retOf = n => {
       const base = closes[closes.length - 1 - n];
-      return base ? (price - base) / base * 100 : null;
+      return base ? (closes[closes.length - 1] - base) / base * 100 : null;
     };
     const ret1m = retOf(21);
     quoteCache[item.symbol] = { price, prev, ret1m };
@@ -198,8 +233,8 @@ async function fillCards(noCache) {
     card.querySelector('.price').textContent = fmtPrice(price, item.symbol);
     const chg = card.querySelector('.chg');
     chg.className = 'chg ' + c.cls;
-    chg.textContent = '어제 대비 ' + c.text;
-    const periods = [['1주', retOf(5)], ['1개월', ret1m], ['3개월', closes.length > 1 ? (price - closes[0]) / closes[0] * 100 : null]];
+    chg.textContent = '전일 대비 ' + c.text;
+    const periods = [['1주', retOf(5)], ['1개월', ret1m], ['3개월', closes.length > 1 ? (closes[closes.length - 1] - closes[0]) / closes[0] * 100 : null]];
     card.querySelector('.rets').innerHTML = periods
       .filter(p => p[1] != null)
       .map(p => {

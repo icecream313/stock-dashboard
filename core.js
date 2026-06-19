@@ -32,17 +32,30 @@ const DEFAULT_LIST = [
   { symbol: 'NVDA',      name: '엔비디아', reuters: 'NVDA.O' }
 ];
 const MACRO = [
-  { symbol: '^KS11',   label: '코스피',      fmt: 'num', naver: 'KOSPI' },
-  { symbol: '^KQ11',   label: '코스닥',      fmt: 'num', naver: 'KOSDAQ' },
-  { symbol: '^GSPC',   label: 'S&P 500',     fmt: 'num' },
-  { symbol: '^IXIC',   label: '나스닥',      fmt: 'num' },
-  { symbol: '^DJI',    label: '다우존스',    fmt: 'num' },
-  { symbol: 'KRW=X',   label: '원/달러',     fmt: 'krw' },
-  { symbol: '^TNX',    label: '미국채 10년', fmt: 'pct' },
-  { symbol: 'CL=F',    label: 'WTI 유가',    fmt: 'usd' },
-  { symbol: 'GC=F',    label: '금',          fmt: 'usd' },
-  { symbol: 'BTC-USD', label: '비트코인',    fmt: 'usd' },
-  { symbol: '^VIX',    label: 'VIX',         fmt: 'num' }
+  { symbol: '^KS11',     label: '코스피',       fmt: 'num', naver: 'KOSPI',  group: 'kr' },
+  { symbol: '^KQ11',     label: '코스닥',       fmt: 'num', naver: 'KOSDAQ', group: 'kr' },
+  { symbol: '^GSPC',     label: 'S&P 500',      fmt: 'num', group: 'us' },
+  { symbol: '^IXIC',     label: '나스닥',       fmt: 'num', group: 'us' },
+  { symbol: '^DJI',      label: '다우존스',     fmt: 'num', group: 'us' },
+  { symbol: '^N225',     label: '닛케이 225',   fmt: 'num', group: 'global' },
+  { symbol: '000001.SS', label: '상해종합',     fmt: 'num', group: 'global' },
+  { symbol: '^SOX',      label: 'SOX 반도체',   fmt: 'num', group: 'global' },
+  { symbol: 'KRW=X',     label: '원/달러',      fmt: 'krw', group: 'fx' },
+  { symbol: 'DX-Y.NYB',  label: '달러인덱스',   fmt: 'num', group: 'fx' },
+  { symbol: '^TNX',      label: '미국채 10년',  fmt: 'pct', group: 'fx' },
+  { symbol: '^IRX',      label: '미국채 3M',    fmt: 'pct', group: 'fx' },
+  { symbol: 'CL=F',      label: 'WTI 유가',     fmt: 'usd', group: 'comm' },
+  { symbol: 'GC=F',      label: '금',           fmt: 'usd', group: 'comm' },
+  { symbol: 'HG=F',      label: '구리',         fmt: 'usd', group: 'comm' },
+  { symbol: 'BTC-USD',   label: '비트코인',     fmt: 'usd', group: 'comm' },
+  { symbol: '^VIX',      label: 'VIX',          fmt: 'num', group: 'comm' }
+];
+const MACRO_GROUPS = [
+  { key: 'kr',     label: '🇰🇷 국내' },
+  { key: 'us',     label: '🇺🇸 미국' },
+  { key: 'global', label: '🌏 글로벌' },
+  { key: 'fx',     label: '💱 환율·금리' },
+  { key: 'comm',   label: '🛢️ 원자재·기타' }
 ];
 // 거시 칩 클릭 시 상세 모달에 넘길 item (지수/지표 공용)
 function macroItem(m) { return { symbol: m.symbol, name: m.label, isIndex: true, naver: m.naver, fmt: m.fmt }; }

@@ -63,25 +63,64 @@
     margin-bottom: 10px;
     letter-spacing: 0.04em;
   }
-  /* 거시 지표 스트립 */
+  /* 거시 지표 스트립 — 카테고리 그룹 */
   .macro-strip {
     display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 10px 20px 2px;
-    scrollbar-width: thin;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 20px 4px;
   }
+  .macro-group-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .macro-group-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-weight: 700;
+    white-space: nowrap;
+    width: 76px;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+  }
+  .macro-group-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .macro-group-chips::-webkit-scrollbar { display: none; }
   .macro-chip {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 8px 14px;
-    min-width: 128px;
+    min-width: 118px;
     flex-shrink: 0;
   }
   .macro-chip .label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
   .macro-chip .price { font-size: 1.02rem; font-weight: 700; margin-top: 2px; white-space: nowrap; }
   .macro-chip .chg { font-size: 0.78rem; white-space: nowrap; }
+  /* 장단기 금리 스프레드 배너 */
+  .yield-spread-banner {
+    margin: 4px 20px 0;
+    padding: 8px 14px;
+    border-radius: 9px;
+    font-size: 0.79rem;
+    line-height: 1.5;
+  }
+  .yield-spread-banner.normal {
+    background: rgba(46,204,113,0.07);
+    border: 1px solid rgba(46,204,113,0.22);
+    color: var(--muted);
+  }
+  .yield-spread-banner.inverted {
+    background: rgba(231,76,60,0.1);
+    border: 1px solid rgba(231,76,60,0.32);
+    color: var(--text);
+  }
   .up { color: var(--up); }
   .down { color: var(--down); }
   .flat { color: var(--muted); }
@@ -281,6 +320,15 @@
     border-bottom: 2px solid transparent; font-weight: 600;
   }
   .detail-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-score-badge {
+    display: inline-block; margin-left: 3px; font-size: 0.68rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 8px; vertical-align: middle; line-height: 1.4;
+    background: rgba(255,255,255,0.08);
+  }
+  .tab-score-badge:empty { display: none; }
+  .tab-score-badge.good { background: rgba(46,204,113,0.18); color: #2ecc71; }
+  .tab-score-badge.mid  { background: rgba(241,196,15,0.18);  color: #f1c40f; }
+  .tab-score-badge.bad  { background: rgba(231,76,60,0.18);   color: #e74c3c; }
   .detail-body { padding: 18px; min-height: 300px; }
   .metric-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -633,7 +681,9 @@
     .tech-chart-box { height: 300px; }
     .section { padding: 0 12px; }
     header { padding: 12px 12px 4px; }
-    .macro-strip { padding: 10px 12px 2px; }
+    .macro-strip { padding: 8px 12px 4px; }
+    .macro-group-label { width: 62px; font-size: 0.64rem; }
+    .yield-spread-banner { margin: 4px 12px 0; }
     .detail-sheet { margin: 0; min-height: 100vh; border-radius: 0; border: none; }
     .detail-body { padding: 14px 12px; }
     .detail-tabs { top: 72px; }
@@ -728,6 +778,11 @@
   .screener-filter label { display: flex; align-items: center; gap: 5px; }
   .screener-filter input { width: 80px; padding: 5px 7px; background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.78rem; }
   .screener-reset { margin-left: auto; padding: 5px 11px; background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 0.78rem; }
+  .scr-row { display: flex; align-items: center; gap: 7px; width: 100%; }
+  .scr-label { font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .scr-mkt-btns { display: flex; gap: 4px; }
+  .scr-mkt-btns button { background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 0.76rem; cursor: pointer; }
+  .scr-mkt-btns button.active { border-color: var(--accent); color: var(--accent); background: rgba(79,140,255,0.1); }
 
   /* #6 개인화 — 설정 탭·섹션 토글·목표가 */
   .set-tabs { display: flex; margin-bottom: 16px; border-bottom: 1px solid var(--border); }

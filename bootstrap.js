@@ -183,6 +183,7 @@ document.getElementById('refresh-btn').onclick = async () => {
   renderSymbolNews();
   trendingCache = { kr: null, us: null };
   renderTrendingSectors(true);
+  if (typeof buyScanCache !== 'undefined') Object.keys(buyScanCache).forEach(k => delete buyScanCache[k]);
   discoveryCache = {};
   renderDiscovery(null, true);
   await Promise.allSettled([renderMacro(true), (async () => renderWatchlist(true))()]);
@@ -204,4 +205,6 @@ setTimeout(() => { renderMarketNews(); renderSymbolNews(); }, 700);
 setTimeout(() => renderDiscovery('up'), 1100);
 // 떠오르는 업종은 더 늦게 시작 (프록시 동시요청 분산)
 setTimeout(() => renderTrendingSectors(), 1500);
+// 기술적매수 백그라운드 스캔 — 시세 요청이 끝난 후 순차 실행
+setTimeout(() => { if (typeof runBuyScanAll === 'function') runBuyScanAll(); }, 3500);
 markUpdated();
