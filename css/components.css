@@ -1,0 +1,84 @@
+/* ── 종합 투자환경 인포그래픽 ── */
+.info-card {
+  background: linear-gradient(135deg, var(--card), rgba(79,140,255,0.04));
+  border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+  box-shadow: var(--shadow); border-radius: var(--radius);
+}
+.info-top { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.info-gauge { position: relative; width: 124px; height: 124px; flex-shrink: 0; }
+.info-gauge svg { transform: rotate(-90deg); }
+.info-gauge .g-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.info-gauge .g-center b { font-size: 1.7rem; line-height: 1; }
+.info-gauge .g-center span { font-size: 0.66rem; color: var(--muted); margin-top: 3px; }
+.info-headline { flex: 1; min-width: 220px; }
+.info-verdict { font-size: 1.15rem; font-weight: 800; margin-bottom: 5px; }
+.info-sub { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+.info-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
+.info-bar {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px;
+}
+.info-bar-head { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; }
+.info-bar-head .ib-score { margin-left: auto; font-weight: 800; }
+.info-bar-head .ib-na { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+.info-bar-track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.info-bar-fill { height: 100%; border-radius: 3px; }
+.info-bar-note { font-size: 0.72rem; color: var(--muted); margin-top: 7px; line-height: 1.5; }
+.info-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.info-disclaim { font-size: 0.7rem; color: var(--muted); flex: 1; min-width: 200px; line-height: 1.5; }
+
+/* ── AI 의견 박스 ── */
+.ai-box {
+  background: linear-gradient(135deg, rgba(79,140,255,0.08), rgba(176,140,255,0.06));
+  border: 1px solid rgba(79,140,255,0.3); border-radius: 12px; padding: 14px 16px; margin-top: 14px;
+}
+.ai-box .ai-head { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
+.ai-box .ai-body { font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap; }
+.ai-box .ai-body b { color: var(--accent); }
+.ai-btn {
+  background: linear-gradient(135deg, #4f8cff, #b08cff); border: none; color: #fff;
+  border-radius: 9px; padding: 10px 18px; font-size: 0.86rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.ai-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ── AI 설정 모달 ── */
+.set-field { margin-bottom: 18px; }
+.set-field label { display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 7px; }
+.set-field input, .set-field select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 10px 12px; font-size: 0.9rem;
+}
+.set-field input:focus, .set-field select:focus { outline: none; border-color: var(--accent); }
+.set-note { font-size: 0.73rem; color: var(--muted); margin-top: 6px; line-height: 1.55; }
+.set-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.set-actions button {
+  background: var(--card); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 9px 18px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+}
+.set-actions button:hover { border-color: var(--accent); }
+.set-actions .set-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.set-actions .set-ghost { color: var(--muted); margin-left: auto; }
+.set-result { font-size: 0.82rem; margin-top: 14px; line-height: 1.5; }
+.set-tabs { display: flex; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.set-tabs button { flex: 1; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 10px 4px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.set-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.set-pane[hidden] { display: none; }
+.section-toggles { display: flex; flex-direction: column; gap: 9px; }
+.section-toggles label { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; color: var(--text); cursor: pointer; padding: 9px 11px; border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--border); }
+.section-toggles label:hover { border-color: var(--accent); }
+.section-toggles input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+/* ── 데이터 상태 배너 ── */
+.retry-inline { background: rgba(91,149,255,0.18); border: 1px solid rgba(91,149,255,0.5); color: var(--accent); border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 0.74rem; font-weight: 600; }
+.retry-inline:hover { background: rgba(91,149,255,0.3); }
+.data-status-banner { display: none; text-align: center; padding: 7px 16px; margin: 10px 0 0; background: rgba(240,180,80,0.1); border: 1px solid rgba(240,180,80,0.3); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--muted); }
+.data-status-banner.visible { display: block; }
+.stale-tag { font-size: 0.64rem; color: var(--muted); opacity: 0.75; margin-top: 2px; }
+.stale-tag::before { content: '🕒 '; }
+
+/* ── 접근성 ── */
+button:focus-visible, [role="button"]:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

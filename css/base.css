@@ -1,0 +1,115 @@
+/* ── 변수 ── */
+:root {
+  --bg: #080a10;
+  --bg-soft: #0d1018;
+  --card: #14171f;
+  --card-2: #1a1e29;
+  --border: #232838;
+  --border-soft: #1b2030;
+  --text: #eef0f6;
+  --muted: #888fa6;
+  --accent: #5b95ff;
+  --accent-2: #b08cff;
+  --up: #f0454f;
+  --down: #3a86ff;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow: 0 6px 22px rgba(0,0,0,0.30);
+  --shadow-soft: 0 2px 10px rgba(0,0,0,0.20);
+}
+
+/* ── 리셋 ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── 기본 ── */
+body {
+  background:
+    radial-gradient(1100px 560px at 78% -8%, rgba(91,149,255,0.07), transparent 58%),
+    radial-gradient(880px 500px at -5% 2%, rgba(176,140,255,0.06), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+  padding-bottom: 40px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 헤더 ── */
+header {
+  padding: 18px 20px 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+header h1 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  background: linear-gradient(92deg, #ffffff, #b9c6e6);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+header .date { color: var(--muted); font-size: 0.85rem; }
+header .refresh {
+  margin-left: auto;
+  background: linear-gradient(158deg, var(--card-2), var(--card));
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-soft);
+}
+header .refresh:hover { border-color: var(--accent); }
+
+/* ── 레이아웃 ── */
+.page { max-width: 1100px; margin: 0 auto; }
+.section { padding: 0 20px; margin-top: 22px; }
+.section h2 {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* ── 접이식 섹션 ── */
+.toggle-h { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 7px; }
+.toggle-h .chev { font-size: 0.8em; color: var(--muted); transition: transform 0.18s; }
+.section.collapsed .collapse-body { display: none; }
+.section.collapsed .toggle-h .chev { transform: rotate(-90deg); }
+.section.collapsed .ts-toggle, .section.collapsed #news-filter-toggle { display: none; }
+
+/* ── 색상 유틸 ── */
+.up { color: var(--up); }
+.down { color: var(--down); }
+.flat { color: var(--muted); }
+.good { color: #2ecc71; }
+.mid  { color: #f1c40f; }
+.bad  { color: #e74c3c; }
+
+/* ── 공통 로딩/에러 ── */
+.loading { color: var(--muted); font-size: 0.85rem; padding: 18px; }
+.d-loading { color: var(--muted); padding: 40px 0; text-align: center; line-height: 1.7; }
+.retry-btn {
+  background: var(--accent); border: none; color: #fff;
+  border-radius: 8px; padding: 8px 22px; cursor: pointer; font-size: 0.88rem; font-weight: 600;
+}
+.disclaimer {
+  margin-top: 16px; padding: 11px 14px; border-radius: 10px;
+  background: rgba(241,196,15,0.07); border: 1px solid rgba(241,196,15,0.25);
+  font-size: 0.73rem; color: var(--muted); line-height: 1.6;
+}
+.hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 12px; line-height: 1.5; }
+
+/* ── 기준 시각 배지 ── */
+.block-asof { margin-left: auto; font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
+.block-asof:empty { display: none; }
+.block-asof::before { content: '🕒 '; }
+
+/* ── 차트 패널 ── */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}

@@ -1,0 +1,92 @@
+/* ════ 반응형 · 모바일 최적화 ════ */
+
+/* ── 800px 이하: 레이아웃 조정 ── */
+@media (max-width: 800px) {
+  header { padding: 12px 12px 4px; }
+  .section { padding: 0 12px; }
+  .macro-strip { padding: 8px 12px 4px; }
+  .macro-group-label { width: 62px; font-size: 0.64rem; }
+  .yield-spread-banner { margin: 4px 12px 0; }
+  .news-grid { grid-template-columns: 1fr; }
+  .news-panel { height: 400px; }
+  .tech-chart-box { height: 300px; }
+  .view-tabs { padding: 0 12px; gap: 6px; }
+  .view-sub { padding: 7px 12px 2px; }
+  .view-tab { padding: 8px 12px; }
+  .vt-overall { order: 3; width: 100%; margin-left: 0; text-align: right; padding-top: 2px; }
+
+  /* 모달: 전체 화면 */
+  .detail-sheet { margin: 0; min-height: 100vh; border-radius: 0; border: none; }
+  .detail-body { padding: 14px 12px; }
+
+  /* ── 탭: 가로 스크롤 pill 스타일 ── */
+  .detail-tabs {
+    top: 64px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-tabs::-webkit-scrollbar { display: none; }
+  .detail-tabs button {
+    flex: 0 0 auto;
+    border-bottom: none;
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .detail-tabs button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  /* 활성 탭 배지는 흰색으로 */
+  .detail-tabs button.active .tab-score-badge {
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+  }
+
+  /* ── 모달 헤더 가격 강조 ── */
+  .d-price { font-size: 1.45rem; }
+  .d-chg {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+  .d-chg.up   { background: rgba(240,69,79,0.18); }
+  .d-chg.down { background: rgba(58,134,255,0.18); }
+
+  /* ── 터치 타겟 최소 44px ── */
+  .detail-tabs button,
+  header .refresh,
+  .wl-head button,
+  .wl-head select,
+  .ts-toggle button,
+  .discovery-tabs button,
+  #news-filter-toggle,
+  #wl-sort { min-height: 44px; }
+
+  /* ── safe-area (iPhone 홈바) ── */
+  body { padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+  .detail-overlay { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+/* ── 760px 이하: Top3 1단 ── */
+@media (max-width: 760px) {
+  .ti-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 680px 이하: 히어로 숫자 축소 ── */
+@media (max-width: 680px) {
+  .hero-card { gap: 16px; padding: 14px 16px; }
+  .hero-block.main .h-value { font-size: 30px; }
+  .hero-block .h-value { font-size: 22px; }
+  .hero-sep { display: none; }
+}
