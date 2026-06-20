@@ -6,6 +6,7 @@ async function renderMacro(noCache) {
       const row = document.createElement('div');
       row.className = 'macro-group-row';
       row.dataset.group = g.key;
+      if (g.color) row.style.setProperty('--group-color', g.color);
       const lbl = document.createElement('div');
       lbl.className = 'macro-group-label';
       lbl.textContent = g.label;
@@ -15,7 +16,7 @@ async function renderMacro(noCache) {
         const chip = document.createElement('div');
         chip.className = 'macro-chip clickable';
         chip.id = 'macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, '');
-        chip.innerHTML = `<div class="label">${m.label}</div><div class="price">…</div><div class="chg flat">—</div>`;
+        chip.innerHTML = `<div class="mc-label">${m.label}</div><div class="mc-price">…</div><div class="mc-chg flat">—</div>`;
         chip.setAttribute('role', 'button');
         chip.setAttribute('tabindex', '0');
         chip.setAttribute('aria-label', m.label + ' 상세');
@@ -47,15 +48,17 @@ async function renderMacro(noCache) {
       const chip = document.getElementById('macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, ''));
       if (!chip) return;
       const d = m.chartOnly ? chartData[m.symbol] : sparkData[m.symbol];
-      if (!d) { chip.querySelector('.price').textContent = '—'; return; }
+      if (!d) { chip.querySelector('.mc-price').textContent = '—'; return; }
       const price = m.chartOnly ? (d.close[0] ?? null) : lastValid(d.close);
       if (m.symbol === 'KRW=X' && price) { usdkrw = price; updatePortfolio(); }
       macroData[m.symbol] = { price, prev: d.previousClose };
       const c = chgInfo(price, d.previousClose);
-      chip.querySelector('.price').textContent = m.fmt === 'pct' ? price != null ? price.toFixed(2) + '%' : '—' : fmtPrice(price, m.symbol, m.fmt);
-      const chg = chip.querySelector('.chg');
-      chg.className = 'chg ' + c.cls;
-      chg.textContent = c.text;
+      chip.querySelector('.mc-price').textContent = m.fmt === 'pct' ? price != null ? price.toFixed(2) + '%' : '—' : fmtPrice(price, m.symbol, m.fmt);
+      const chg = chip.querySelector('.mc-chg');
+      chg.className = 'mc-chg ' + c.cls;
+      // 퍼센트만 추출해서 표시
+      const pctMatch = c.text.match(/\(([+-]?[\d.]+%)\)/);
+      chg.textContent = pctMatch ? (c.cls === 'up' ? '▲ ' : c.cls === 'down' ? '▼ ' : '') + pctMatch[1] : c.text;
       // 급등/급락 하이라이트 (±3% 이상)
       const pct = (price != null && d.previousClose) ? (price - d.previousClose) / d.previousClose * 100 : 0;
       chip.classList.remove('chip-surge', 'chip-plunge');
@@ -68,7 +71,7 @@ async function renderMacro(noCache) {
     if (typeof renderMainInfographic === 'function') renderMainInfographic();
     if (typeof renderTopInsights === 'function') renderTopInsights();
   } catch (e) {
-    document.querySelectorAll('.macro-chip .price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
+    document.querySelectorAll('.macro-chip .mc-price').forEach(p => { if (p.textContent === '…') p.textContent = '오류'; });
   }
 }
 

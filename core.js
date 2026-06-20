@@ -32,33 +32,45 @@ const DEFAULT_LIST = [
   { symbol: 'NVDA',      name: '엔비디아', reuters: 'NVDA.O' }
 ];
 const MACRO = [
+  // ── 국내 ──
   { symbol: '^KS11',     label: '코스피',       fmt: 'num', naver: 'KOSPI',  group: 'kr' },
   { symbol: '^KQ11',     label: '코스닥',       fmt: 'num', naver: 'KOSDAQ', group: 'kr' },
+  // ── 미국 현물 ──
   { symbol: '^GSPC',     label: 'S&P 500',      fmt: 'num', group: 'us' },
-  { symbol: '^IXIC',     label: '나스닥',       fmt: 'num', group: 'us' },
+  { symbol: '^IXIC',     label: '나스닥 100',   fmt: 'num', group: 'us' },
   { symbol: '^DJI',      label: '다우존스',     fmt: 'num', group: 'us' },
+  { symbol: '^SOX',      label: 'SOX 반도체',   fmt: 'num', group: 'us' },
+  { symbol: 'SOXX',      label: 'SOXX ETF',     fmt: 'usd', group: 'us' },
+  // ── 선물 ──
+  { symbol: 'ES=F',      label: 'S&P 선물',     fmt: 'num', group: 'futures' },
+  { symbol: 'NQ=F',      label: '나스닥 선물',  fmt: 'num', group: 'futures' },
+  { symbol: 'NKD=F',     label: '닛케이 선물',  fmt: 'num', group: 'futures' },
+  { symbol: 'RTY=F',     label: '러셀 선물',    fmt: 'num', group: 'futures' },
+  // ── 글로벌 ──
   { symbol: '^N225',     label: '닛케이 225',   fmt: 'num', group: 'global' },
   { symbol: '^HSI',      label: '항셍',         fmt: 'num', group: 'global' },
   { symbol: '000001.SS', label: '상해종합',     fmt: 'num', group: 'global' },
   { symbol: '^GDAXI',    label: 'DAX',          fmt: 'num', group: 'global' },
-  { symbol: '^SOX',      label: 'SOX 반도체',   fmt: 'num', group: 'global' },
+  // ── 환율·금리 ──
   { symbol: 'KRW=X',     label: '원/달러',      fmt: 'krw', group: 'fx' },
   { symbol: 'DX-Y.NYB',  label: '달러인덱스',   fmt: 'num', group: 'fx' },
   { symbol: '^TNX',      label: '미국채 10년',  fmt: 'pct', group: 'fx', chartOnly: true },
   { symbol: '^IRX',      label: '미국채 3M',    fmt: 'pct', group: 'fx', chartOnly: true },
-  { symbol: 'CL=F',      label: 'WTI 유가',     fmt: 'usd', group: 'comm' },
+  // ── 원자재 ──
+  { symbol: 'CL=F',      label: 'WTI 원유',     fmt: 'usd', group: 'comm' },
   { symbol: 'GC=F',      label: '금',           fmt: 'usd', group: 'comm' },
   { symbol: 'SI=F',      label: '은',           fmt: 'usd', group: 'comm' },
   { symbol: 'HG=F',      label: '구리',         fmt: 'usd', group: 'comm' },
   { symbol: 'BTC-USD',   label: '비트코인',     fmt: 'usd', group: 'comm' },
-  { symbol: '^VIX',      label: 'VIX',          fmt: 'num', group: 'comm' }
+  { symbol: '^VIX',      label: 'VIX 공포',     fmt: 'num', group: 'comm' }
 ];
 const MACRO_GROUPS = [
-  { key: 'kr',     label: '🇰🇷 국내' },
-  { key: 'us',     label: '🇺🇸 미국' },
-  { key: 'global', label: '🌏 글로벌' },
-  { key: 'fx',     label: '💱 환율·금리' },
-  { key: 'comm',   label: '🛢️ 원자재·기타' }
+  { key: 'kr',      label: '🇰🇷 국내',      color: '#e74c3c' },
+  { key: 'us',      label: '🇺🇸 미국',      color: '#3b82f6' },
+  { key: 'futures', label: '⚡ 선물',       color: '#a855f7' },
+  { key: 'global',  label: '🌏 글로벌',     color: '#10b981' },
+  { key: 'fx',      label: '💱 환율·금리',  color: '#f59e0b' },
+  { key: 'comm',    label: '🛢️ 원자재',     color: '#f97316' }
 ];
 // 거시 칩 클릭 시 상세 모달에 넘길 item (지수/지표 공용)
 function macroItem(m) { return { symbol: m.symbol, name: m.label, isIndex: true, naver: m.naver, fmt: m.fmt }; }
@@ -205,15 +217,22 @@ async function fetchSpark(symbols, range, interval, noCache) {
   try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) {}
   if (!noCache && cached && cached.d && Date.now() - cached.t < CACHE_TTL) return cached.d;
   try {
-    // 심볼의 ^, = 등은 인코딩하되 구분자 콤마는 그대로 둬야 한다
-    const symParam = symbols.map(encodeURIComponent).join(',');
-    const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symParam}&range=${range}&interval=${interval}`;
-    const json = await fetchViaProxy(url, false);
-    if (!json || typeof json !== 'object') throw new Error('spark: no data');
-    try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: json })); } catch (e) {}
-    return json;
+    // Yahoo Spark API는 최대 20개 심볼 제한 → 청크로 분할 병렬 요청
+    const CHUNK = 10;
+    const chunks = [];
+    for (let i = 0; i < symbols.length; i += CHUNK) chunks.push(symbols.slice(i, i + CHUNK));
+    const parts = await Promise.all(chunks.map(async chunk => {
+      const symParam = chunk.map(encodeURIComponent).join(',');
+      const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symParam}&range=${range}&interval=${interval}`;
+      const json = await fetchViaProxy(url, false);
+      if (!json || typeof json !== 'object' || json.spark?.error) throw new Error('spark chunk failed');
+      return json;
+    }));
+    const merged = Object.assign({}, ...parts);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), d: merged })); } catch (e) {}
+    return merged;
   } catch (e) {
-    if (cached && cached.d) { noteStale(cached.t); return cached.d; } // 실패 시 마지막 캐시라도 표시
+    if (cached && cached.d) { noteStale(cached.t); return cached.d; }
     throw e;
   }
 }
