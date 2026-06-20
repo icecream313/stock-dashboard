@@ -1,8 +1,10 @@
-// ═════════════════════ 기술적매수 분석 엔진 ═════════════════════
-// Jay 트레이딩 스타일: 캔들 + 거래량 중심 (가중 40%)
-// 시장 국면(상승장/하락장) 자동 판단 → RSI·알람 기준 동적 조정
+// ═════════════════════ 기술적매수 분석 엔진 (듀얼) ═════════════════════
+// 두 매매기법을 분리 채점한다 (거래량·RSI 해석이 정반대이므로):
+//   🛤️ 눌림목매수 — 상승추세 중 조정. 거래량 "수축" + RSI 40~50 반등 + 지지
+//   🚀 돌파매수   — 저항/전고점 돌파. 거래량 "폭증" + RSI 55~75 모멘텀 + 신고가
+// 시장 국면(상승장/하락장) 자동 판단 → 기준 동적 조정.
 
-const buyScanCache = {}; // { [symbol]: { score, regime, components, ts } }
+const buyScanCache = {}; // { [symbol]: { regime, pullback, breakout, best, ts } }
 
 // 설정 로드: bull=70, bear=80 기본
 function getBuyScanThreshold(regime) {
@@ -26,7 +28,7 @@ function detectMarketRegime(bars) {
   return { regime: 'bull', smaUsed: null, smaVal: null };
 }
 
-// ── 캔들 패턴 감지 (강도 1~3) ────────────────────────────────
+// ── 반전(지지) 캔들 패턴 감지 (강도 1~3) — 눌림목용 ──────────────
 function detectCandlePatterns(bars) {
   const n = bars.length;
   if (n < 3) return [];
@@ -40,43 +42,34 @@ function detectCandlePatterns(bars) {
   const d0 = g(0), d1 = g(1), d2 = g(2);
   const out = [];
 
-  // ① 상승샛별형 (Morning Star) — 강도 3
-  if (!isUp(d2) && body(d2) > 0 &&
-      body(d1) < body(d2) * 0.4 &&
-      isUp(d0) && body(d0) > body(d2) * 0.5 &&
-      d0.close > (d2.open + d2.close) / 2) {
+  if (!isUp(d2) && body(d2) > 0 && body(d1) < body(d2) * 0.4 &&
+      isUp(d0) && body(d0) > body(d2) * 0.5 && d0.close > (d2.open + d2.close) / 2) {
     out.push({ name: '상승샛별형', strength: 3, emoji: '⭐',
       desc: '3봉 강한 하락→상승 반전. 거래량 수반 시 신뢰도 매우 높음.' });
   }
-  // ② 상승장악형 (Bullish Engulfing) — 강도 2.5
   if (!isUp(d1) && isUp(d0) && body(d0) >= body(d1) * 0.9 &&
       d0.open <= d1.close && d0.close >= d1.open) {
     out.push({ name: '상승장악형', strength: 2.5, emoji: '🟢',
       desc: '전일 음봉을 완전히 감싸는 양봉. 강한 매수세 진입.' });
   }
-  // ③ 망치형 (Hammer) — 강도 2
   if (body(d0) > 0 && dnSh(d0) >= body(d0) * 2 && upSh(d0) <= body(d0) * 0.5) {
     out.push({ name: '망치형', strength: 2, emoji: '🔨',
       desc: '긴 아래꼬리 + 작은 몸통. 저점 강한 매수세 유입.' });
   }
-  // ④ 관통형 (Piercing Line) — 강도 2
   if (!isUp(d1) && isUp(d0) && d0.open < d1.close &&
       d0.close > (d1.open + d1.close) / 2 && d0.close < d1.open) {
     out.push({ name: '관통형', strength: 2, emoji: '🗡️',
       desc: '전일 음봉 중간점 돌파. 매수세가 매도세를 이기기 시작.' });
   }
-  // ⑤ 역망치형 (Inverted Hammer) — 강도 1.5
   if (body(d0) > 0 && upSh(d0) >= body(d0) * 2 && dnSh(d0) <= body(d0) * 0.5 && isUp(d0)) {
     out.push({ name: '역망치형', strength: 1.5, emoji: '🔁',
       desc: '긴 위꼬리 양봉. 매수 시도 신호. 익일 양봉 확인 권장.' });
   }
-  // ⑥ 상승잉태형 (Bullish Harami) — 강도 1.5
   if (!isUp(d1) && isUp(d0) && body(d0) < body(d1) * 0.5 &&
       d0.open > d1.close && d0.close < d1.open) {
     out.push({ name: '상승잉태형', strength: 1.5, emoji: '🫂',
       desc: '전일 음봉 안 작은 양봉. 하락 추세 약화 신호.' });
   }
-  // ⑦ 도지 (Doji) — 강도 1
   const range0 = d0.high - d0.low;
   if (range0 > 0 && body(d0) / range0 < 0.1) {
     out.push({ name: '도지', strength: 1, emoji: '➕',
@@ -85,206 +78,327 @@ function detectCandlePatterns(bars) {
   return out;
 }
 
-// ── 일목균형표 ────────────────────────────────────────────────
-function computeIchimoku(bars) {
+// ── 스토캐스틱 슬로우 %K·%D (직전값 포함, 크로스 판정용) ──────────
+function stochKD(bars, kPeriod = 14, kSmooth = 3, dPeriod = 3) {
   const n = bars.length;
-  if (n < 78) return null;
-  const mid = sl => sl && sl.length
-    ? (Math.max(...sl.map(b => b.high)) + Math.min(...sl.map(b => b.low))) / 2
-    : null;
-  const tenkan = mid(bars.slice(n - 9));
-  const kijun  = mid(bars.slice(n - 26));
-  const i26 = n - 26;
-  if (i26 < 52) return null;
-  const t26 = mid(bars.slice(i26 - 9,  i26));
-  const k26 = mid(bars.slice(i26 - 26, i26));
-  const senkou_a = t26 != null && k26 != null ? (t26 + k26) / 2 : null;
-  const senkou_b = mid(bars.slice(i26 - 52, i26));
-  const price    = bars[n - 1].close;
-  const cloudTop = senkou_a != null && senkou_b != null ? Math.max(senkou_a, senkou_b) : null;
-  const cloudBot = senkou_a != null && senkou_b != null ? Math.min(senkou_a, senkou_b) : null;
-  return { tenkan, kijun, senkou_a, senkou_b, cloudTop, cloudBot, price };
+  if (n < kPeriod + kSmooth + dPeriod) return null;
+  const rawK = [];
+  for (let i = kPeriod - 1; i < n; i++) {
+    const sl = bars.slice(i - kPeriod + 1, i + 1);
+    const hi = Math.max(...sl.map(b => b.high));
+    const lo = Math.min(...sl.map(b => b.low));
+    rawK.push(hi === lo ? 50 : (bars[i].close - lo) / (hi - lo) * 100);
+  }
+  const sma = (arr, p) => {
+    const o = [];
+    for (let i = p - 1; i < arr.length; i++)
+      o.push(arr.slice(i - p + 1, i + 1).reduce((a, b) => a + b, 0) / p);
+    return o;
+  };
+  const slowK = sma(rawK, kSmooth);
+  const dArr  = sma(slowK, dPeriod);
+  if (slowK.length < 2 || dArr.length < 2) return null;
+  return {
+    kNow: slowK[slowK.length - 1], kPrev: slowK[slowK.length - 2],
+    dNow: dArr[dArr.length - 1],   dPrev: dArr[dArr.length - 2]
+  };
 }
 
-// ── 핵심 점수 엔진 ────────────────────────────────────────────
-function computeBuyScanScore(bars, item) {
-  if (!bars || bars.length < 60) return null;
+// ── 공통 통계 준비 ────────────────────────────────────────────
+function prepStats(bars) {
   const closes = bars.map(b => b.close);
   const vols   = bars.map(b => b.volume || 0);
   const n = bars.length;
   const price = closes[n - 1];
   const smaOf = p => n >= p ? closes.slice(n - p).reduce((a, b) => a + b, 0) / p : null;
-  const sma5  = smaOf(5);
-  const sma20 = smaOf(20);
-  const sma60 = smaOf(60);
 
-  // 국면
-  const regInfo = detectMarketRegime(bars);
-  const regime  = regInfo.regime;
-  const rsiThreshold = regime === 'bull' ? 45 : 30;
-  const alertThreshold = getBuyScanThreshold(regime);
+  const sma5  = smaOf(5),  sma20 = smaOf(20),
+        sma60 = smaOf(60), sma120 = smaOf(120);
 
-  // ① 캔들 패턴 + 거래량 [가중 40%] ─────────────────────────
-  const patterns = detectCandlePatterns(bars);
-  const avg20vol = n > 21
-    ? vols.slice(n - 21, n - 1).reduce((a, b) => a + b, 0) / 20
-    : 0;
-  const volRatio = avg20vol > 0 ? vols[n - 1] / avg20vol : 1;
+  // 거래량
+  const avg20vol = n > 21 ? vols.slice(n - 21, n - 1).reduce((a, b) => a + b, 0) / 20 : 0;
+  const volRatio = avg20vol > 0 ? vols[n - 1] / avg20vol : 1;             // 오늘 vs 20일평균
+  const recent3vol = vols.slice(n - 3).reduce((a, b) => a + b, 0) / 3;
+  const recentVolRatio = avg20vol > 0 ? recent3vol / avg20vol : 1;        // 최근 3일 vs 20일평균
 
-  const patternRaw = patterns.reduce((s, p) => s + p.strength, 0);
-  const patternBase = Math.min(100, patternRaw / 3 * 100);
-  const volMult = patternRaw > 0
-    ? (volRatio >= 2.0 ? 1.5 : volRatio >= 1.5 ? 1.3 : volRatio >= 1.0 ? 1.0 : 0.7)
-    : 1.0;
-  const noPatternBase = volRatio >= 2.0 ? 40 : volRatio >= 1.5 ? 25 : 15;
-  const candleVolScore = Math.min(100, patternRaw > 0 ? patternBase * volMult : noPatternBase);
+  // 캔들 통계
+  const avgBody = n > 20
+    ? bars.slice(n - 20).reduce((a, b) => a + Math.abs(b.close - b.open), 0) / 20 : 0;
+  const d0 = bars[n - 1];
+  const range0 = d0.high - d0.low;
+  const body0  = Math.abs(d0.close - d0.open);
+  const isUp0  = d0.close >= d0.open;
+  const closePos = range0 > 0 ? (d0.close - d0.low) / range0 : 0.5;       // 0=저가, 1=고가
 
-  // ② 추세 · 눌림목 [가중 20%] ─────────────────────────────
-  let trendScore = 45;
-  const trendReasons = [];
-  if (sma20 && sma60) {
-    const dev20 = (price - sma20) / sma20 * 100;
-    const dev60 = (price - sma60) / sma60 * 100;
-    if (regime === 'bull') {
-      if (price > sma60) { trendScore += 20; trendReasons.push('주가 60일선 위 — 상승 추세 유지'); }
-      if (dev20 >= -4 && dev20 <= 6) { trendScore += 30; trendReasons.push(`20일선 눌림목 구간 (이격 ${dev20.toFixed(1)}%)`); }
-      else if (dev20 < -8) { trendScore += 15; trendReasons.push(`20일선 과대 이탈 — 단기 과매도 (이격 ${dev20.toFixed(1)}%)`); }
-      else if (dev20 > 10) { trendScore -= 10; trendReasons.push(`20일선 과이격 — 단기 과매수 (이격 ${dev20.toFixed(1)}%)`); }
-    } else {
-      if (Math.abs(dev60) < 5) { trendScore += 30; trendReasons.push(`60일선 지지 도달 (이격 ${dev60.toFixed(1)}%)`); }
-      if (price < sma20 && price < sma60) { trendScore -= 15; trendReasons.push('역배열 — 추가 하락 경계'); }
-    }
-    if (sma5 && sma5 > sma20 && sma20 > sma60) {
-      trendScore += 10; trendReasons.push('이동평균 정배열 (5일 > 20일 > 60일)');
-    }
-  }
-  trendScore = Math.max(0, Math.min(100, trendScore));
+  // 전고점 (오늘 제외 N일 고가)
+  const highs = bars.map(b => b.high);
+  const priorHigh20 = n > 21 ? Math.max(...highs.slice(n - 21, n - 1)) : null;
+  const priorHigh60 = n > 61 ? Math.max(...highs.slice(n - 61, n - 1)) : null;
+  const yearHigh    = Math.max(...highs);                                  // 데이터 범위 내 최고가
+  // 최근 스윙 고점 (눌림 깊이 계산용, 오늘 포함 30일)
+  const recentHigh30 = Math.max(...highs.slice(Math.max(0, n - 30)));
 
-  // ③ 일목균형표 [가중 15%] ────────────────────────────────
-  let ichimokuScore = 50;
-  const ichimokuReasons = [];
-  const ich = computeIchimoku(bars);
-  if (ich && ich.cloudTop != null) {
-    ichimokuScore = 0;
-    if (ich.price > ich.cloudTop) {
-      ichimokuScore += 50; ichimokuReasons.push('구름대 위 거래 — 강세 구간');
-    } else if (ich.price < ich.cloudBot) {
-      ichimokuScore += 15; ichimokuReasons.push('구름대 하단 — 약세 구간');
-    } else {
-      ichimokuScore += 30; ichimokuReasons.push('구름대 내 — 방향 전환 구간');
-    }
-    if (ich.tenkan > ich.kijun) {
-      ichimokuScore += 30; ichimokuReasons.push('전환선 > 기준선 — 단기 상승 신호');
-    } else {
-      ichimokuScore += 5; ichimokuReasons.push('전환선 < 기준선 — 단기 하락 압력');
-    }
-    if (ich.senkou_a != null && ich.senkou_b != null) {
-      if (ich.senkou_a > ich.senkou_b) {
-        ichimokuScore += 20; ichimokuReasons.push('양운 (선행스팬A > B) — 강세 구름');
-      } else {
-        ichimokuReasons.push('음운 (선행스팬A < B) — 약세 구름');
-      }
-    }
-    ichimokuScore = Math.min(100, ichimokuScore);
-  }
-
-  // ④ RSI [가중 10%] ───────────────────────────────────────
+  // 지표
   const rsiVal = rsiWilder(closes, 14);
-  let rsiScore = 50;
-  const rsiReasons = [];
-  if (rsiVal != null) {
-    if (rsiVal < rsiThreshold) {
-      rsiScore = 85;
-      rsiReasons.push(`RSI ${rsiVal.toFixed(1)} — ${regime === 'bull' ? '상승장' : '하락장'} 기준 ${rsiThreshold} 이하 → 매수 구간`);
-    } else if (rsiVal > 70) {
-      rsiScore = 20;
-      rsiReasons.push(`RSI ${rsiVal.toFixed(1)} — 과매수(70↑) 경계`);
-    } else if (rsiVal < 55) {
-      rsiScore = 60;
-      rsiReasons.push(`RSI ${rsiVal.toFixed(1)} — 중립 (매도 압력 없음)`);
-    } else {
-      rsiScore = 40;
-      rsiReasons.push(`RSI ${rsiVal.toFixed(1)} — 다소 과매수 방향`);
-    }
-    // RSI 강세 다이버전스 탐지
-    if (n >= 40) {
-      const rsiArr = rsiSeries(closes, 14);
-      const pLow1 = Math.min(...closes.slice(n - 20));
-      const pLow2 = Math.min(...closes.slice(n - 40, n - 20));
-      const r1 = rsiArr.slice(n - 20).filter(v => v != null);
-      const r2 = rsiArr.slice(n - 40, n - 20).filter(v => v != null);
-      if (pLow1 < pLow2 && r1.length && r2.length && Math.min(...r1) > Math.min(...r2)) {
-        rsiScore = Math.min(100, rsiScore + 15);
-        rsiReasons.push('🔀 RSI 강세 다이버전스 — 가격 신저가, RSI 저점 상승');
-      }
-    }
-  }
-
-  // ⑤ MACD [가중 10%] ─────────────────────────────────────
+  const rsiArr = rsiSeries(closes, 14);
+  const rsiPrev = rsiArr.filter(v => v != null).slice(-2)[0] ?? null;
   const { hist } = macdCalc(closes);
-  let macdScore = 50;
-  const macdReasons = [];
-  if (hist && hist.length > 6) {
-    const h0 = hist[hist.length - 1];
-    const h1 = hist[hist.length - 2];
-    const h2 = hist[hist.length - 3];
-    if (h0 > 0) {
-      macdScore = 70; macdReasons.push('히스토그램 양수 — 상승 모멘텀');
-    } else {
-      macdScore = 30; macdReasons.push('히스토그램 음수 — 하락 모멘텀');
-    }
-    if (h0 < 0 && h0 > h1 && h1 > h2) {
-      macdScore = Math.min(100, macdScore + 20);
-      macdReasons.push('히스토그램 수렴 중 — 바닥 형성 가능');
-    }
-    if (h1 <= 0 && h0 > 0) {
-      macdScore = Math.min(100, macdScore + 20);
-      macdReasons.push('🎯 골든크로스 — 시그널선 상향 돌파');
-    }
-  }
-
-  // ⑥ 볼린저밴드 [가중 5%] ────────────────────────────────
-  let bbScore = 50;
-  const bbReasons = [];
-  if (sma20 && n >= 20) {
-    const slice = closes.slice(n - 20);
-    const sd = Math.sqrt(slice.reduce((a, v) => a + (v - sma20) ** 2, 0) / 20);
-    const lower = sma20 - 2 * sd;
-    const upper = sma20 + 2 * sd;
-    const pctB  = sd > 0 ? (price - lower) / (upper - lower) * 100 : 50;
-    if (price < lower) {
-      bbScore = 90; bbReasons.push('하단(-2σ) 이탈 — 통계적 과매도');
-    } else if (pctB < 20) {
-      bbScore = 75; bbReasons.push(`%B ${pctB.toFixed(0)}% — 하단 밴드 근접`);
-    } else if (price > upper) {
-      bbScore = 15; bbReasons.push(`상단(+2σ) 초과 — 과매수`);
-    } else {
-      bbScore = 50; bbReasons.push(`%B ${pctB.toFixed(0)}% — 밴드 내 정상 범위`);
-    }
-  }
-
-  // 패턴 + 거래량 동반 보너스
-  const bonus = patterns.length > 0 && volRatio >= 1.5 ? 8 : 0;
-  const raw   = candleVolScore * 0.40 + trendScore * 0.20 + ichimokuScore * 0.15
-              + rsiScore * 0.10 + macdScore * 0.10 + bbScore * 0.05;
-  const score = Math.min(100, Math.round(raw + bonus));
+  const stoch = stochKD(bars);
 
   return {
-    score, regime, alertThreshold, volRatio, regInfo,
-    regimeLabel: regime === 'bull' ? '상승장' : '하락장',
-    rsiThreshold,
-    components: {
-      candleVol: { score: Math.round(candleVolScore), weight: 40, patterns, volRatio },
-      trend:     { score: Math.round(trendScore),     weight: 20, reasons: trendReasons, sma5, sma20, sma60 },
-      ichimoku:  { score: Math.round(ichimokuScore),  weight: 15, reasons: ichimokuReasons, data: ich },
-      rsi:       { score: Math.round(rsiScore),       weight: 10, reasons: rsiReasons, value: rsiVal, threshold: rsiThreshold },
-      macd:      { score: Math.round(macdScore),      weight: 10, reasons: macdReasons, histVal: hist && hist.length ? hist[hist.length - 1] : null },
-      bb:        { score: Math.round(bbScore),        weight: 5,  reasons: bbReasons }
-    }
+    closes, vols, n, price, sma5, sma20, sma60, sma120,
+    avg20vol, volRatio, recentVolRatio, avgBody, d0, range0, body0, isUp0, closePos,
+    priorHigh20, priorHigh60, yearHigh, recentHigh30,
+    rsiVal, rsiPrev, hist, stoch
   };
 }
 
-// ── 탭 UI 렌더링 ─────────────────────────────────────────────
+// ════════════════════ 눌림목매수 채점 ════════════════════════
+// 상승추세 중 조정 후 재진입. 거래량 "수축" + RSI 되돌림 반등 + 지지.
+function scorePullback(s, regime, item) {
+  const { price, sma5, sma20, sma60, sma120, volRatio, recentVolRatio,
+          rsiVal, rsiPrev, recentHigh30, stoch } = s;
+  const comps = {};
+
+  // ① 추세 정배열 [25%] — 눌림목의 대전제 ────────────────────
+  let trend = 0; const tR = [];
+  if (sma60 && price > sma60) { trend += 35; tR.push({ t: '주가 > 60일선 — 중장기 상승추세 유지', cls: 'good' }); }
+  else if (sma60)            { tR.push({ t: '주가 < 60일선 — 추세 이탈, 눌림목 부적합', cls: 'bad' }); }
+  if (sma20 && sma60 && sma20 > sma60) { trend += 25; tR.push({ t: '20일선 > 60일선 — 중기 정배열', cls: 'good' }); }
+  if (sma5 && sma20 && sma60 && sma5 > sma20 && sma20 > sma60) {
+    trend += 25; tR.push({ t: '5 > 20 > 60일선 — 완전 정배열', cls: 'good' });
+  } else if (sma5 && sma20 && sma5 < sma20) {
+    tR.push({ t: '5일선 < 20일선 — 단기 조정 진행 중 (눌림 형성)', cls: 'mid' });
+  }
+  if (sma120 && price > sma120) { trend += 15; tR.push({ t: '주가 > 120일선 — 장기 상승추세', cls: 'good' }); }
+  trend = Math.min(100, trend);
+  comps.trend = { score: Math.round(trend), weight: 25, reasons: tR };
+
+  // ② 눌림 깊이 (20일선 이격도 + 스윙 되돌림) [20%] ──────────
+  let depth = 40; const dR = [];
+  if (sma20) {
+    const dev20 = (price - sma20) / sma20 * 100;
+    if (dev20 >= -2 && dev20 <= 3)       { depth = 92; dR.push({ t: `20일선 이격 ${dev20.toFixed(1)}% — 이상적 눌림 (지지선 안착)`, cls: 'good' }); }
+    else if (dev20 >= -5 && dev20 < -2)  { depth = 78; dR.push({ t: `20일선 이격 ${dev20.toFixed(1)}% — 깊은 눌림 (지지 테스트)`, cls: 'good' }); }
+    else if (dev20 > 3 && dev20 <= 7)    { depth = 55; dR.push({ t: `20일선 이격 +${dev20.toFixed(1)}% — 아직 덜 눌림`, cls: 'mid' }); }
+    else if (dev20 < -8)                 { depth = 35; dR.push({ t: `20일선 이격 ${dev20.toFixed(1)}% — 과대 이탈, 추세 훼손 우려`, cls: 'bad' }); }
+    else if (dev20 > 10)                 { depth = 18; dR.push({ t: `20일선 이격 +${dev20.toFixed(1)}% — 과이격, 눌림 아님`, cls: 'bad' }); }
+    else                                 { depth = 50; dR.push({ t: `20일선 이격 ${dev20.toFixed(1)}%`, cls: 'mid' }); }
+  }
+  // 스윙 고점 대비 되돌림 깊이 (건강한 눌림 3~12%)
+  if (recentHigh30 && price) {
+    const pull = (recentHigh30 - price) / recentHigh30 * 100;
+    if (pull >= 3 && pull <= 12) { depth = Math.min(100, depth + 8); dR.push({ t: `스윙고점 대비 -${pull.toFixed(1)}% 조정 — 정상 되돌림 구간`, cls: 'good' }); }
+    else if (pull > 20)          { depth = Math.max(0, depth - 10); dR.push({ t: `스윙고점 대비 -${pull.toFixed(1)}% — 과도한 하락(추세 전환 경계)`, cls: 'bad' }); }
+  }
+  comps.depth = { score: Math.round(depth), weight: 20, reasons: dR };
+
+  // ③ 거래량 수축 [15%] — 조정엔 거래량 감소가 건강 ──────────
+  let volDry = 50; const vR = [];
+  if (s.isUp0 && volRatio >= 1.3) {
+    volDry = 90; vR.push({ t: `오늘 양봉 + 거래량 ${(volRatio*100).toFixed(0)}% — 눌림 후 반등 거래량 유입`, cls: 'good' });
+  } else if (recentVolRatio < 0.8) {
+    volDry = 85; vR.push({ t: `최근 3일 거래량 ${(recentVolRatio*100).toFixed(0)}% — 조정 중 거래량 수축(건강한 눌림)`, cls: 'good' });
+  } else if (recentVolRatio <= 1.2) {
+    volDry = 60; vR.push({ t: `최근 3일 거래량 ${(recentVolRatio*100).toFixed(0)}% — 보통 수준`, cls: 'mid' });
+  } else {
+    volDry = 32; vR.push({ t: `최근 3일 거래량 ${(recentVolRatio*100).toFixed(0)}% — 조정에 거래량 증가(매도세 유입 우려)`, cls: 'bad' });
+  }
+  comps.volDry = { score: Math.round(volDry), weight: 15, reasons: vR };
+
+  // ④ RSI 되돌림 [15%] — 40~50 식은 뒤 반등 시작 ────────────
+  let rsiSc = 50; const rR = [];
+  if (rsiVal != null) {
+    const turningUp = rsiPrev != null && rsiVal > rsiPrev;
+    if (rsiVal >= 40 && rsiVal <= 52) {
+      rsiSc = turningUp ? 88 : 78;
+      rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 조정 후 매수 구간${turningUp ? ' + 반등 시작(상승 전환)' : ''}`, cls: 'good' });
+    } else if (rsiVal >= 35 && rsiVal < 40) {
+      rsiSc = 72; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 다소 깊은 조정 (저점 매수 관점)`, cls: 'good' });
+    } else if (rsiVal > 52 && rsiVal <= 60) {
+      rsiSc = 52; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 아직 충분히 식지 않음`, cls: 'mid' });
+    } else if (rsiVal < 35) {
+      rsiSc = 58; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 과매도, 추세 약화 가능성 점검 필요`, cls: 'mid' });
+    } else {
+      rsiSc = 30; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 과매수 방향, 눌림 진입 부적합`, cls: 'bad' });
+    }
+  }
+  comps.rsiPull = { score: Math.round(rsiSc), weight: 15, reasons: rR };
+
+  // ⑤ 스토캐스틱 과매도 골든크로스 [10%] ────────────────────
+  let stSc = 50; const sR = [];
+  if (stoch) {
+    const { kNow, kPrev, dNow, dPrev } = stoch;
+    const goldenCross = kPrev <= dPrev && kNow > dNow;
+    if (kNow < 30 && goldenCross) { stSc = 92; sR.push({ t: `%K ${kNow.toFixed(0)} 과매도 + 골든크로스 — 강력 반등 신호`, cls: 'good' }); }
+    else if (goldenCross && kNow < 50) { stSc = 76; sR.push({ t: `%K ${kNow.toFixed(0)} 골든크로스 — 단기 상승 전환`, cls: 'good' }); }
+    else if (kNow < 20) { stSc = 70; sR.push({ t: `%K ${kNow.toFixed(0)} — 과매도, 반등 대기`, cls: 'good' }); }
+    else if (kNow > 80) { stSc = 25; sR.push({ t: `%K ${kNow.toFixed(0)} — 과매수 구간`, cls: 'bad' }); }
+    else { stSc = 50; sR.push({ t: `%K ${kNow.toFixed(0)} / %D ${dNow.toFixed(0)} — 중립`, cls: 'mid' }); }
+  }
+  comps.stoch = { score: Math.round(stSc), weight: 10, reasons: sR };
+
+  // ⑥ 지지 캔들 패턴 [15%] ──────────────────────────────────
+  let candle = 25; const cR = [];
+  const pats = detectCandlePatterns(s_bars(s));
+  if (pats.length) {
+    const raw = pats.reduce((a, p) => a + p.strength, 0);
+    candle = Math.min(100, 30 + raw / 3 * 70);
+    pats.forEach(p => cR.push({ t: `${p.emoji} ${p.name} (강도 ${p.strength}) — ${p.desc}`, cls: p.strength >= 2 ? 'good' : 'mid' }));
+  } else {
+    cR.push({ t: '감지된 반전 캔들 패턴 없음 — 지지 확인 캔들 대기', cls: 'mid' });
+  }
+  comps.candle = { score: Math.round(candle), weight: 15, reasons: cR, patterns: pats };
+
+  const raw = trend*0.25 + depth*0.20 + volDry*0.15 + rsiSc*0.15 + stSc*0.10 + candle*0.15;
+  // 추세 이탈(하락장 + 60일선 하회) 시 감점 — 눌림목은 상승추세 전용
+  let score = Math.round(raw);
+  if (regime === 'bear' && sma60 && price < sma60) score = Math.round(score * 0.75);
+  return { score: Math.min(100, score), components: comps };
+}
+
+// 패턴 함수가 bars를 필요로 해서 prepStats 결과에서 역참조 (간이)
+function s_bars(s) { return s.__bars; }
+
+// ════════════════════ 돌파매수 채점 ══════════════════════════
+// 저항/전고점 돌파. 거래량 "폭증" + RSI 모멘텀 + 신고가 + 장대양봉.
+function scoreBreakout(s, regime, item) {
+  const { price, sma5, sma20, sma60, volRatio, rsiVal, hist,
+          priorHigh20, priorHigh60, yearHigh, d0, closePos, body0, avgBody, isUp0 } = s;
+  const comps = {};
+
+  // ① 전고점·신고가 돌파 [25%] ──────────────────────────────
+  let brk = 30; const bR = [];
+  const close = price;
+  if (priorHigh60 && close >= priorHigh60) { brk = 96; bR.push({ t: `60일 전고점(${fmtPrice(priorHigh60, item.symbol)}) 돌파 — 60일 신고가`, cls: 'good' }); }
+  else if (priorHigh20 && close >= priorHigh20) { brk = 80; bR.push({ t: `20일 전고점(${fmtPrice(priorHigh20, item.symbol)}) 돌파 — 20일 신고가`, cls: 'good' }); }
+  else if (priorHigh20) {
+    const gap = (priorHigh20 - close) / priorHigh20 * 100;
+    if (gap <= 2)      { brk = 58; bR.push({ t: `20일 전고점 -${gap.toFixed(1)}% 근접 — 돌파 임박`, cls: 'mid' }); }
+    else if (gap <= 5) { brk = 42; bR.push({ t: `20일 전고점 -${gap.toFixed(1)}% 아래 — 돌파 대기`, cls: 'mid' }); }
+    else               { brk = 25; bR.push({ t: `20일 전고점 -${gap.toFixed(1)}% 아래 — 박스권 내부`, cls: 'bad' }); }
+  }
+  if (yearHigh && close >= yearHigh * 0.995) { brk = Math.min(100, brk + 4); bR.push({ t: '기간 내 최고가 경신 — 매물대 부담 없음', cls: 'good' }); }
+  comps.highBreak = { score: Math.round(brk), weight: 25, reasons: bR };
+
+  // ② 거래량 폭증 [25%] — 돌파의 진위를 가르는 핵심 ──────────
+  let vol = 20; const vR = [];
+  const vp = (volRatio * 100).toFixed(0);
+  if (volRatio >= 2.5)      { vol = 100; vR.push({ t: `거래량 ${vp}% (평균 2.5배↑) — 폭발적 매수 유입`, cls: 'good' }); }
+  else if (volRatio >= 2.0) { vol = 90;  vR.push({ t: `거래량 ${vp}% (평균 2배↑) — 강력한 돌파 확인`, cls: 'good' }); }
+  else if (volRatio >= 1.5) { vol = 75;  vR.push({ t: `거래량 ${vp}% — 돌파 신뢰 구간(150%↑)`, cls: 'good' }); }
+  else if (volRatio >= 1.2) { vol = 55;  vR.push({ t: `거래량 ${vp}% — 다소 부족 (확인 필요)`, cls: 'mid' }); }
+  else if (volRatio >= 1.0) { vol = 40;  vR.push({ t: `거래량 ${vp}% — 평균 수준 (돌파엔 미흡)`, cls: 'mid' }); }
+  else                      { vol = 18;  vR.push({ t: `거래량 ${vp}% — 거래량 없는 돌파(가짜 돌파 의심)`, cls: 'bad' }); }
+  comps.volSurge = { score: Math.round(vol), weight: 25, reasons: vR };
+
+  // ③ 볼린저 스퀴즈→상단 돌파 [15%] ─────────────────────────
+  let bb = 45; const bbR = [];
+  const { closes, n } = s;
+  if (sma20 && n >= 40) {
+    const slice = closes.slice(n - 20);
+    const sd = Math.sqrt(slice.reduce((a, v) => a + (v - sma20) ** 2, 0) / 20);
+    const upper = sma20 + 2 * sd, lower = sma20 - 2 * sd;
+    const bw = sma20 > 0 ? (upper - lower) / sma20 : 0;                 // 현재 밴드폭
+    // 직전 20일 밴드폭 평균 (스퀴즈 판단)
+    const bwHist = [];
+    for (let i = n - 20; i < n; i++) {
+      const sl = closes.slice(i - 19, i + 1);
+      if (sl.length < 20) continue;
+      const m = sl.reduce((a, b) => a + b, 0) / 20;
+      const v = Math.sqrt(sl.reduce((a, x) => a + (x - m) ** 2, 0) / 20);
+      bwHist.push(m > 0 ? (4 * v) / m : 0);
+    }
+    const bwAvg = bwHist.length ? bwHist.reduce((a, b) => a + b, 0) / bwHist.length : bw;
+    const squeezed = bw < bwAvg * 0.9;
+    const pctB = sd > 0 ? (price - lower) / (upper - lower) * 100 : 50;
+    if (price > upper && squeezed)      { bb = 92; bbR.push({ t: `밴드 수축 후 상단(+2σ) 돌파 — 변동성 확장 시작`, cls: 'good' }); }
+    else if (price > upper)             { bb = 76; bbR.push({ t: `볼린저 상단(+2σ) 돌파 — 강세 추세`, cls: 'good' }); }
+    else if (pctB >= 80)               { bb = 64; bbR.push({ t: `%B ${pctB.toFixed(0)}% — 상단밴드 근접`, cls: 'mid' }); }
+    else if (squeezed)                 { bb = 58; bbR.push({ t: `밴드폭 수축(변동성 저점) — 돌파 직전 에너지 응축`, cls: 'mid' }); }
+    else                               { bb = 42; bbR.push({ t: `%B ${pctB.toFixed(0)}% — 밴드 중앙`, cls: 'mid' }); }
+  }
+  comps.squeeze = { score: Math.round(bb), weight: 15, reasons: bbR };
+
+  // ④ 추세·MACD 모멘텀 [15%] ────────────────────────────────
+  let mom = 0; const mR = [];
+  if (sma5 && sma20 && sma60 && price > sma5 && sma5 > sma20 && sma20 > sma60) {
+    mom += 45; mR.push({ t: '주가 > 5 > 20 > 60일선 — 완전 정배열', cls: 'good' });
+  } else if (sma20 && sma60 && sma20 > sma60) {
+    mom += 28; mR.push({ t: '20일선 > 60일선 — 중기 상승추세', cls: 'good' });
+  } else {
+    mR.push({ t: '정배열 미완성 — 추세 강도 약함', cls: 'mid' });
+  }
+  if (hist && hist.length > 3) {
+    const h0 = hist[hist.length - 1], h1 = hist[hist.length - 2], h2 = hist[hist.length - 3];
+    if (h0 > 0 && h0 > h1) { mom += 35; mR.push({ t: 'MACD 히스토그램 양수 + 확대 — 상승 모멘텀 가속', cls: 'good' }); }
+    else if (h1 <= 0 && h0 > 0) { mom += 30; mR.push({ t: '🎯 MACD 골든크로스 — 모멘텀 전환', cls: 'good' }); }
+    else if (h0 > 0) { mom += 22; mR.push({ t: 'MACD 히스토그램 양수 — 상승 우위', cls: 'good' }); }
+    else { mom += 5; mR.push({ t: 'MACD 히스토그램 음수 — 모멘텀 부족', cls: 'bad' }); }
+  }
+  mom = Math.min(100, mom);
+  comps.momentum = { score: Math.round(mom), weight: 15, reasons: mR };
+
+  // ⑤ RSI 모멘텀 [10%] — 돌파엔 강한 RSI가 우호적 ──────────
+  let rsiSc = 40; const rR = [];
+  if (rsiVal != null) {
+    if (rsiVal >= 55 && rsiVal <= 75)      { rsiSc = 88; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 강한 모멘텀(과열 전 이상 구간)`, cls: 'good' }); }
+    else if (rsiVal > 50 && rsiVal < 55)   { rsiSc = 66; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 모멘텀 형성 중`, cls: 'mid' }); }
+    else if (rsiVal > 75 && rsiVal <= 85)  { rsiSc = 58; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 강하나 과열 주의`, cls: 'mid' }); }
+    else if (rsiVal > 85)                  { rsiSc = 32; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 과열, 단기 조정 위험`, cls: 'bad' }); }
+    else                                   { rsiSc = 33; rR.push({ t: `RSI ${rsiVal.toFixed(1)} — 모멘텀 부족, 돌파 신뢰도 낮음`, cls: 'bad' }); }
+  }
+  comps.rsiMom = { score: Math.round(rsiSc), weight: 10, reasons: rR };
+
+  // ⑥ 돌파 캔들 강도 [10%] — 장대양봉·종가 고가 마감 ────────
+  let candle = 30; const cR = [];
+  const bodyRatio = avgBody > 0 ? body0 / avgBody : 1;
+  if (isUp0 && bodyRatio >= 1.5 && closePos >= 0.7) {
+    candle = 92; cR.push({ t: `장대양봉(몸통 ${bodyRatio.toFixed(1)}배) + 고가권 마감 — 강한 돌파 캔들`, cls: 'good' });
+  } else if (isUp0 && closePos >= 0.6) {
+    candle = 66; cR.push({ t: `양봉 + 상단 마감(종가 위치 ${(closePos*100).toFixed(0)}%) — 매수 우위`, cls: 'mid' });
+  } else if (isUp0) {
+    candle = 48; cR.push({ t: `양봉이나 종가 위치 ${(closePos*100).toFixed(0)}% — 윗꼬리 부담`, cls: 'mid' });
+  } else {
+    candle = 28; cR.push({ t: '음봉 마감 — 돌파 강도 약함', cls: 'bad' });
+  }
+  comps.breakCandle = { score: Math.round(candle), weight: 10, reasons: cR };
+
+  const raw = brk*0.25 + vol*0.25 + bb*0.15 + mom*0.15 + rsiSc*0.10 + candle*0.10;
+  let score = Math.round(raw);
+  // 거래량 폭증 없는 돌파는 가짜일 확률 高 → 캡
+  if (brk >= 80 && volRatio < 1.2) { score = Math.min(score, 58); bR.push({ t: '⚠️ 돌파했으나 거래량 부족 — 가짜 돌파(속임수) 가능', cls: 'bad' }); }
+  return { score: Math.min(100, score), components: comps };
+}
+
+// ── 핵심 듀얼 엔진 ────────────────────────────────────────────
+function computeBuyScanScore(bars, item) {
+  if (!bars || bars.length < 60) return null;
+  const s = prepStats(bars);
+  s.__bars = bars; // 캔들 패턴 함수용
+
+  const regInfo = detectMarketRegime(bars);
+  const regime  = regInfo.regime;
+  const alertThreshold = getBuyScanThreshold(regime);
+
+  const pb = scorePullback(s, regime, item);
+  const bo = scoreBreakout(s, regime, item);
+
+  const pullback = { ...pb, alertThreshold };
+  const breakout = { ...bo, alertThreshold };
+
+  const best = pullback.score >= breakout.score
+    ? { type: 'pullback', score: pullback.score, label: '눌림목매수' }
+    : { type: 'breakout', score: breakout.score, label: '돌파매수' };
+
+  return {
+    regime, regimeLabel: regime === 'bull' ? '상승장' : '하락장',
+    regInfo, volRatio: s.volRatio, alertThreshold,
+    pullback, breakout, best
+  };
+}
+
+// ── 탭 점수 뱃지 ─────────────────────────────────────────────
 function updateBuyScanTabBadge(score, cls) {
   const btn = document.querySelector('#detail-tabs [data-tab="buyscan"]');
   if (!btn) return;
@@ -308,7 +422,7 @@ async function renderBuyScanTab(item) {
   if (!el) return;
   const cached = buyScanCache[item.symbol];
   if (cached) { paintBuyScanResult(el, cached, item); return; }
-  el.innerHTML = '<div class="d-loading">캔들·거래량·일목균형표·RSI·MACD 분석 중…</div>';
+  el.innerHTML = '<div class="d-loading">눌림목·돌파 동시 분석 중… (추세·거래량·RSI·스토캐스틱·볼린저)</div>';
   try {
     const r = await fetchChart(item.symbol, '1y', '1d');
     if (detailItem !== item) return;
@@ -330,124 +444,58 @@ async function renderBuyScanTab(item) {
   }
 }
 
-function paintBuyScanResult(el, result, item) {
-  const { score, regime, regimeLabel, alertThreshold, components, volRatio, rsiThreshold } = result;
+// ── 등급 헬퍼 ────────────────────────────────────────────────
+function bstGrade(score, type) {
+  const kind = type === 'breakout' ? '돌파' : '눌림목';
+  if (score >= 80) return { cls: 'good', color: '#2ecc71', label: `강한 ${kind} 신호` };
+  if (score >= 70) return { cls: 'good', color: '#27ae60', label: `${kind} 검토 구간` };
+  if (score >= 55) return { cls: 'mid',  color: '#f1c40f', label: '중립 — 관망' };
+  return { cls: 'bad', color: '#e74c3c', label: '신호 미흡' };
+}
 
-  const grd = score >= 80 ? { cls: 'good', color: '#2ecc71', label: '강한 매수 신호' }
-    : score >= 70        ? { cls: 'good', color: '#27ae60', label: '매수 검토 구간' }
-    : score >= 55        ? { cls: 'mid',  color: '#f1c40f', label: '중립 — 관망 구간' }
-    :                      { cls: 'bad',  color: '#e74c3c', label: '아직 이른 구간' };
+function bstGaugeSVG(score, color, size = 96) {
+  const r = size / 2 - 8, c = size / 2, CIRC = 2 * Math.PI * r;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#2a2e3a" stroke-width="8"/>
+    <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+      stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(2)}"
+      stroke-dashoffset="${(CIRC * (1 - score / 100)).toFixed(2)}"
+      transform="rotate(-90 ${c} ${c})"/>
+  </svg>`;
+}
 
-  const R    = 54;
-  const CIRC = 2 * Math.PI * R;
-  const regimeCls = regime === 'bull' ? 'good' : 'mid';
+// ── 컴포넌트 메타 (모드별) ───────────────────────────────────
+const PULLBACK_COMPS = [
+  { key: 'trend',  icon: '📐', label: '추세 정배열',          w: 25 },
+  { key: 'depth',  icon: '📉', label: '눌림 깊이(이격도)',    w: 20 },
+  { key: 'volDry', icon: '🔻', label: '거래량 수축',          w: 15 },
+  { key: 'rsiPull',icon: '🌀', label: 'RSI 되돌림(40~50)',    w: 15 },
+  { key: 'stoch',  icon: '⚡', label: '스토캐스틱 골든크로스', w: 10 },
+  { key: 'candle', icon: '🕯️', label: '지지 캔들 패턴',        w: 15 }
+];
+const BREAKOUT_COMPS = [
+  { key: 'highBreak',   icon: '🚩', label: '전고점·신고가 돌파', w: 25 },
+  { key: 'volSurge',    icon: '🔥', label: '거래량 폭증',        w: 25 },
+  { key: 'squeeze',     icon: '🎯', label: '볼린저 스퀴즈·돌파', w: 15 },
+  { key: 'momentum',    icon: '📈', label: '추세·MACD 모멘텀',   w: 15 },
+  { key: 'rsiMom',      icon: '🌀', label: 'RSI 모멘텀(55~75)',  w: 10 },
+  { key: 'breakCandle', icon: '🕯️', label: '돌파 캔들 강도',      w: 10 }
+];
 
-  const volPct = (volRatio * 100).toFixed(0);
-  const volTag = volRatio >= 2.0
-    ? `<span class="bst-tag good">🔥 거래량 ${volPct}%</span>`
-    : volRatio >= 1.5
-    ? `<span class="bst-tag mid">📊 거래량 ${volPct}%</span>`
-    : `<span class="bst-tag">거래량 ${volPct}%</span>`;
-
-  const alertTag = score >= alertThreshold
-    ? `<div class="bst-alert-inline">🚨 매수 신호 기준(≥${alertThreshold}점) 충족!</div>`
-    : '';
-
-  const comps = [
-    { key: 'candleVol', icon: '🕯️', label: '캔들 패턴 + 거래량', w: 40 },
-    { key: 'trend',     icon: '📈', label: '추세 · 눌림목',       w: 20 },
-    { key: 'ichimoku',  icon: '☁️', label: '일목균형표',           w: 15 },
-    { key: 'rsi',       icon: '📉', label: 'RSI',                w: 10 },
-    { key: 'macd',      icon: '🌊', label: 'MACD / DIFF',        w: 10 },
-    { key: 'bb',        icon: '🎯', label: '볼린저밴드',           w: 5  }
-  ];
-
-  let html = `
-<div class="bst-top">
-  <div class="bst-gauge">
-    <svg width="124" height="124" viewBox="0 0 124 124">
-      <circle cx="62" cy="62" r="${R}" fill="none" stroke="#2a2e3a" stroke-width="10"/>
-      <circle cx="62" cy="62" r="${R}" fill="none" stroke="${grd.color}" stroke-width="10"
-        stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(2)}"
-        stroke-dashoffset="${(CIRC * (1 - score / 100)).toFixed(2)}"
-        transform="rotate(-90 62 62)"/>
-    </svg>
-    <div class="bst-gcenter"><b class="${grd.cls}">${score}</b><span>/ 100</span></div>
-  </div>
-  <div class="bst-headline">
-    <div class="bst-verdict ${grd.cls}">${grd.label}</div>
-    <div class="bst-tags">
-      <span class="bst-tag ${regimeCls}">📊 ${regimeLabel} 모드</span>
-      <span class="bst-tag">RSI 기준 &lt;${rsiThreshold}</span>
-      <span class="bst-tag">알람 기준 ≥${alertThreshold}점</span>
-      ${volTag}
-    </div>
-    ${alertTag}
-    <div class="bst-basis">캔들+거래량(40%)·추세(20%)·일목균형표(15%)·RSI(10%)·MACD(10%)·볼린저밴드(5%) 가중 합산</div>
-  </div>
-</div>
-<div class="bst-comps">`;
-
-  comps.forEach(c => {
+function bstCompList(components, metaList) {
+  let html = '<div class="bst-comps">';
+  metaList.forEach(c => {
     const comp = components[c.key];
-    const sc   = comp.score;
+    if (!comp) return;
+    const sc = comp.score;
     const scCls   = sc >= 70 ? 'good' : sc >= 45 ? 'mid' : 'bad';
     const scColor = sc >= 70 ? '#2ecc71' : sc >= 45 ? '#f1c40f' : '#e74c3c';
-
     let detailHtml = '';
-
-    if (c.key === 'candleVol') {
-      const { patterns: pats, volRatio: vr } = comp;
-      const vrCls = vr >= 2.0 ? 'good' : vr >= 1.5 ? 'mid' : '';
-      detailHtml += `<div class="bst-metric"><span class="sm-dot ${vrCls}"></span><div class="sm-body">
-        <div class="sm-top"><span class="sm-label">거래량 배수</span><span class="sm-value ${vrCls}">평균 대비 ${(vr * 100).toFixed(0)}%</span></div>
-        <div class="sm-rule">150% 이상이면 패턴 신뢰도 강화 → 현재 ${vr >= 1.5 ? '✅ 충족' : '⚠️ 미달'}</div>
-        <div class="sm-why">거래량 급증은 세력·기관 매수 진입 신호입니다. 캔들 패턴과 동반 시 신뢰도 대폭 상승.</div>
+    (comp.reasons || []).forEach(r => {
+      detailHtml += `<div class="bst-metric"><span class="sm-dot ${r.cls || ''}"></span><div class="sm-body">
+        <div class="sm-top"><span class="sm-label">${esc(r.t)}</span></div>
       </div></div>`;
-      if (pats.length) {
-        pats.forEach(p => {
-          const strCls = p.strength >= 2.5 ? 'good' : p.strength >= 2 ? 'mid' : '';
-          detailHtml += `<div class="bst-metric"><span class="sm-dot ${strCls}"></span><div class="sm-body">
-            <div class="sm-top"><span class="sm-label">${p.emoji} ${esc(p.name)}</span><span class="sm-value ${strCls}">강도 ${p.strength}</span></div>
-            <div class="sm-why">${esc(p.desc)}</div>
-          </div></div>`;
-        });
-      } else {
-        const noPatDot = vr >= 1.5 ? 'mid' : '';
-        const noPatLabel = vr >= 1.5 ? '패턴 대기 구간' : '감지된 패턴 없음';
-        const noPatWhy = vr >= 1.5
-          ? '거래량 급증이 선행 중입니다. 반전 캔들 패턴이 출현하면 강한 진입 신호가 됩니다.'
-          : '오늘 기준 주요 반전 캔들 패턴이 발견되지 않았습니다.';
-        detailHtml += `<div class="bst-metric"><span class="sm-dot ${noPatDot}"></span><div class="sm-body">
-          <div class="sm-top"><span class="sm-label">${noPatLabel}</span></div>
-          <div class="sm-why">${noPatWhy}</div>
-        </div></div>`;
-      }
-    } else {
-      (comp.reasons || []).forEach(r => {
-        const rCls = /골든|정배열|눌림목|구름대 위|상승 신호|매수 구간|수렴|다이버전스|지지/.test(r) ? 'good'
-          : /역배열|하락|과매수|경계|약세|미달/.test(r) ? 'bad' : 'mid';
-        detailHtml += `<div class="bst-metric"><span class="sm-dot ${rCls}"></span><div class="sm-body">
-          <div class="sm-top"><span class="sm-label">${esc(r)}</span></div>
-        </div></div>`;
-      });
-
-      if (c.key === 'rsi' && comp.value != null) {
-        detailHtml += `<div class="bst-metric"><span class="sm-dot"></span><div class="sm-body">
-          <div class="sm-rule">판정 기준: ${esc(regimeLabel)} → RSI &lt;${comp.threshold} 매수 / &gt;70 매도</div>
-          <div class="sm-why">상승장에서는 RSI 45 이하도 매수 타이밍 — 하락장 기준(30)까지 기다리면 기회를 놓칩니다.</div>
-        </div></div>`;
-      }
-
-      if (c.key === 'ichimoku' && comp.data) {
-        const ich  = comp.data;
-        const fp   = v => v != null ? fmtPrice(v, item.symbol) : '—';
-        detailHtml += `<div class="bst-metric"><span class="sm-dot"></span><div class="sm-body">
-          <div class="sm-rule">전환선 ${fp(ich.tenkan)} · 기준선 ${fp(ich.kijun)} · 구름 ${fp(ich.cloudBot)} ~ ${fp(ich.cloudTop)}</div>
-        </div></div>`;
-      }
-    }
-
+    });
     html += `<div class="bst-comp" data-expanded="false">
       <div class="bst-comp-head">
         <span class="bst-comp-icon">${c.icon}</span>
@@ -459,16 +507,87 @@ function paintBuyScanResult(el, result, item) {
       <div class="bst-detail" hidden>${detailHtml}</div>
     </div>`;
   });
+  html += '</div>';
+  return html;
+}
 
-  html += `</div>
-<div class="disclaimer">⚠️ 기술적 분석은 과거 가격·거래량의 패턴이며 미래 수익을 보장하지 않습니다. 여러 신호가 같은 방향을 가리킬 때 신뢰도가 높습니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
+function paintBuyScanResult(el, result, item) {
+  const { regimeLabel, regime, alertThreshold, volRatio, pullback, breakout, best } = result;
+  const regimeCls = regime === 'bull' ? 'good' : 'mid';
+
+  const pbG = bstGrade(pullback.score, 'pullback');
+  const boG = bstGrade(breakout.score, 'breakout');
+  const bestG = best.type === 'pullback' ? pbG : boG;
+
+  const volPct = (volRatio * 100).toFixed(0);
+  const volTag = volRatio >= 2.0 ? `<span class="bst-tag good">🔥 거래량 ${volPct}%</span>`
+    : volRatio >= 1.5 ? `<span class="bst-tag mid">📊 거래량 ${volPct}%</span>`
+    : `<span class="bst-tag">거래량 ${volPct}%</span>`;
+
+  const alertTag = best.score >= alertThreshold
+    ? `<div class="bst-alert-inline">🚨 ${best.label} 신호 기준(≥${alertThreshold}점) 충족!</div>` : '';
+
+  const html = `
+<div class="bst-dual">
+  <button class="bst-card pullback ${best.type==='pullback'?'is-best':''}" data-mode="pullback">
+    ${best.type==='pullback'?'<span class="bst-best-flag">BEST</span>':''}
+    <div class="bst-card-gauge">${bstGaugeSVG(pullback.score, pbG.color)}
+      <div class="bst-card-num ${pbG.cls}">${pullback.score}</div>
+    </div>
+    <div class="bst-card-title">🛤️ 눌림목매수</div>
+    <div class="bst-card-verdict ${pbG.cls}">${pbG.label}</div>
+  </button>
+  <button class="bst-card breakout ${best.type==='breakout'?'is-best':''}" data-mode="breakout">
+    ${best.type==='breakout'?'<span class="bst-best-flag">BEST</span>':''}
+    <div class="bst-card-gauge">${bstGaugeSVG(breakout.score, boG.color)}
+      <div class="bst-card-num ${boG.cls}">${breakout.score}</div>
+    </div>
+    <div class="bst-card-title">🚀 돌파매수</div>
+    <div class="bst-card-verdict ${boG.cls}">${boG.label}</div>
+  </button>
+</div>
+<div class="bst-summary">
+  <div class="bst-tags">
+    <span class="bst-tag ${regimeCls}">📊 ${regimeLabel} 모드</span>
+    <span class="bst-tag">알람 기준 ≥${alertThreshold}점</span>
+    ${volTag}
+  </div>
+  ${alertTag}
+</div>
+<div class="bst-mode-tabs">
+  <button data-mt="pullback" class="${best.type==='pullback'?'active':''}">🛤️ 눌림목 근거</button>
+  <button data-mt="breakout" class="${best.type==='breakout'?'active':''}">🚀 돌파 근거</button>
+</div>
+<div class="bst-mode-pane" data-pane="pullback" ${best.type==='pullback'?'':'hidden'}>
+  <div class="bst-pane-head">🛤️ 눌림목매수 — 상승추세 중 조정 후 재진입. <b>거래량 수축</b> + RSI 40~50 반등 + 지지 확인이 핵심.</div>
+  ${bstCompList(pullback.components, PULLBACK_COMPS)}
+</div>
+<div class="bst-mode-pane" data-pane="breakout" ${best.type==='breakout'?'':'hidden'}>
+  <div class="bst-pane-head">🚀 돌파매수 — 저항·전고점 돌파. <b>거래량 폭증(150%↑)</b> + RSI 55~75 모멘텀 + 신고가가 핵심.</div>
+  ${bstCompList(breakout.components, BREAKOUT_COMPS)}
+</div>
+<div class="disclaimer">⚠️ 기술적 분석은 과거 가격·거래량 패턴이며 미래 수익을 보장하지 않습니다. 눌림목·돌파 모두 시장 추세가 받쳐줄 때 신뢰도가 높습니다. 투자 판단과 책임은 본인에게 있습니다.</div>`;
 
   el.innerHTML = html;
+  updateBuyScanTabBadge(best.score, bestG.cls);
 
-  // 탭 버튼에 점수 뱃지 표시
-  updateBuyScanTabBadge(score, grd.cls);
-
-  // 근거 보기 토글
+  // 모드 탭 전환
+  el.querySelectorAll('.bst-mode-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mt;
+      el.querySelectorAll('.bst-mode-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+      el.querySelectorAll('.bst-mode-pane').forEach(p => { p.hidden = p.dataset.pane !== mode; });
+    });
+  });
+  // 상단 카드 클릭 → 해당 모드 근거로 점프
+  el.querySelectorAll('.bst-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const mode = card.dataset.mode;
+      const tabBtn = el.querySelector(`.bst-mode-tabs button[data-mt="${mode}"]`);
+      if (tabBtn) tabBtn.click();
+    });
+  });
+  // 근거 펼침 토글
   el.querySelectorAll('.bst-comp').forEach(comp => {
     comp.querySelector('.bst-comp-head').addEventListener('click', () => {
       const open = comp.dataset.expanded !== 'true';
@@ -487,10 +606,9 @@ async function runBuyScanAll(noCache) {
   const alerts = [];
   for (const item of watchlist) {
     try {
-      let bars = null;
       const r = await fetchChart(item.symbol, '1y', '1d', noCache);
       const q = r.indicators.quote[0];
-      bars = (r.timestamp || []).map((t, i) => ({
+      const bars = (r.timestamp || []).map((t, i) => ({
         time: t, open: q.open[i], high: q.high[i], low: q.low[i],
         close: q.close[i], volume: (q.volume && q.volume[i]) || 0
       })).filter(b => b.close != null && b.open != null && b.high != null && b.low != null);
@@ -498,9 +616,9 @@ async function runBuyScanAll(noCache) {
       const result = computeBuyScanScore(bars, item);
       if (!result) continue;
       buyScanCache[item.symbol] = { ...result, ts: Date.now() };
-      if (result.score >= result.alertThreshold) alerts.push({ item, result });
+      if (result.best.score >= result.alertThreshold) alerts.push({ item, result });
     } catch (e) { /* 개별 종목 실패는 조용히 무시 */ }
-    await new Promise(ok => setTimeout(ok, 400)); // 프록시 과부하 방지
+    await new Promise(ok => setTimeout(ok, 400));
   }
   if (alerts.length) renderBuyScanAlertBanner(alerts);
 }
@@ -510,7 +628,7 @@ function checkBuyScanAlerts() {
     .map(sym => {
       const c = buyScanCache[sym];
       const item = watchlist.find(w => w.symbol === sym);
-      return (c && item && c.score >= c.alertThreshold) ? { item, result: c } : null;
+      return (c && item && c.best && c.best.score >= c.alertThreshold) ? { item, result: c } : null;
     })
     .filter(Boolean);
   if (alerts.length) renderBuyScanAlertBanner(alerts);
@@ -520,11 +638,13 @@ function renderBuyScanAlertBanner(alerts) {
   const banner = document.getElementById('buyscan-alert-banner');
   if (!banner) return;
   const chips = alerts.map(a => {
-    const cls  = a.result.score >= 80 ? 'good' : 'mid';
+    const best = a.result.best;
+    const cls  = best.score >= 80 ? 'good' : 'mid';
     const name = esc(a.item.name || a.item.symbol);
     const sym  = esc(a.item.symbol);
-    return `<button class="bsa-chip ${cls}" data-sym="${sym}" title="${name} — ${a.result.score}점 (${a.result.regimeLabel})">
-      🚨 <b>${name}</b> ${a.result.score}점<span class="bsa-regime">${a.result.regimeLabel}</span>
+    const icon = best.type === 'breakout' ? '🚀' : '🛤️';
+    return `<button class="bsa-chip ${cls}" data-sym="${sym}" data-mode="${best.type}" title="${name} — ${best.label} ${best.score}점 (${a.result.regimeLabel})">
+      ${icon} <b>${name}</b> ${best.score}점<span class="bsa-regime">${best.label}</span>
     </button>`;
   }).join('');
   banner.innerHTML = `<span class="bsa-label">📡 기술적 매수 신호</span>${chips}
@@ -534,8 +654,18 @@ function renderBuyScanAlertBanner(alerts) {
   banner.querySelectorAll('.bsa-chip').forEach(btn => {
     btn.onclick = () => {
       const sym  = btn.dataset.sym;
+      const mode = btn.dataset.mode;
       const item = watchlist.find(w => w.symbol === sym);
-      if (item) { openDetail(item); setTimeout(() => switchTab('buyscan'), 200); }
+      if (item) {
+        openDetail(item);
+        setTimeout(() => {
+          switchTab('buyscan');
+          setTimeout(() => {
+            const tabBtn = document.querySelector(`#tab-buyscan .bst-mode-tabs button[data-mt="${mode}"]`);
+            if (tabBtn) tabBtn.click();
+          }, 250);
+        }, 200);
+      }
     };
   });
   banner.querySelector('.bsa-close').onclick = () => { banner.hidden = true; };
@@ -577,48 +707,72 @@ function renderBuyScanAlertBanner(alerts) {
 .bsa-regime { font-size: 0.7rem; color: var(--muted); margin-left: 3px; }
 .bsa-close  { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0 4px; }
 
-/* ── 게이지 + 헤더 ── */
-.bst-top {
-  display: flex; align-items: flex-start; gap: 16px;
-  padding: 16px; border-bottom: 1px solid var(--border);
+/* ── 듀얼 카드 (눌림목 / 돌파) ── */
+.bst-dual {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  padding: 14px 14px 6px;
 }
-.bst-gauge { position: relative; flex-shrink: 0; width: 124px; height: 124px; }
-.bst-gcenter {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; pointer-events: none;
+.bst-card {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 14px 10px 12px; border-radius: 14px;
+  background: #ffffff06; border: 1.5px solid var(--border);
+  cursor: pointer; transition: transform .12s, border-color .15s, background .15s;
 }
-.bst-gcenter b { font-size: 2rem; font-weight: 700; line-height: 1; }
-.bst-gcenter b.good { color: #2ecc71; }
-.bst-gcenter b.mid  { color: #f1c40f; }
-.bst-gcenter b.bad  { color: #e74c3c; }
-.bst-gcenter span   { font-size: 0.72rem; color: var(--muted); }
+.bst-card:hover { transform: translateY(-2px); background: #ffffff0c; }
+.bst-card.is-best { border-color: #f39c12; background: #f39c1210; }
+.bst-best-flag {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  background: #f39c12; color: #1a1d27; font-size: 0.6rem; font-weight: 800;
+  padding: 1px 8px; border-radius: 99px; letter-spacing: 0.05em;
+}
+.bst-card-gauge { position: relative; width: 96px; height: 96px; }
+.bst-card-num {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.7rem; font-weight: 800; pointer-events: none;
+}
+.bst-card-num.good { color: #2ecc71; }
+.bst-card-num.mid  { color: #f1c40f; }
+.bst-card-num.bad  { color: #e74c3c; }
+.bst-card-title { font-size: 0.9rem; font-weight: 700; margin-top: 2px; }
+.bst-card-verdict { font-size: 0.74rem; }
+.bst-card-verdict.good { color: #2ecc71; }
+.bst-card-verdict.mid  { color: #f1c40f; }
+.bst-card-verdict.bad  { color: #e74c3c; }
 
-.bst-headline { flex: 1; min-width: 0; }
-.bst-verdict  { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
-.bst-verdict.good { color: #2ecc71; }
-.bst-verdict.mid  { color: #f1c40f; }
-.bst-verdict.bad  { color: #e74c3c; }
-
-.bst-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
-.bst-tag  {
+/* ── 요약 태그 ── */
+.bst-summary { padding: 2px 14px 8px; }
+.bst-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.bst-tag {
   font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;
   background: #ffffff12; color: var(--muted);
 }
 .bst-tag.good { background: #2ecc7122; color: #2ecc71; }
 .bst-tag.mid  { background: #f1c40f22; color: #f1c40f; }
+.bst-alert-inline { font-size: 0.8rem; color: #f39c12; font-weight: 600; margin-top: 6px; }
 
-.bst-alert-inline {
-  font-size: 0.8rem; color: #f39c12; font-weight: 600; margin-bottom: 5px;
+/* ── 모드 탭 ── */
+.bst-mode-tabs {
+  display: flex; gap: 6px; padding: 6px 14px 0;
+  border-top: 1px solid var(--border); margin-top: 4px;
 }
-.bst-basis { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+.bst-mode-tabs button {
+  flex: 1; padding: 9px 8px; font-size: 0.82rem; font-weight: 600;
+  background: #ffffff08; border: 1px solid var(--border); border-radius: 9px;
+  color: var(--muted); cursor: pointer; transition: all .12s;
+}
+.bst-mode-tabs button.active { background: var(--accent, #4f8cff); border-color: var(--accent, #4f8cff); color: #fff; }
+.bst-pane-head {
+  font-size: 0.74rem; color: var(--muted); line-height: 1.5;
+  padding: 10px 14px 2px;
+}
+.bst-pane-head b { color: var(--fg, #e8e8e8); }
 
 /* ── 컴포넌트 목록 ── */
-.bst-comps { padding: 8px 0; }
+.bst-comps { padding: 4px 0 8px; }
 .bst-comp  { border-bottom: 1px solid var(--border); }
 .bst-comp-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; cursor: pointer; user-select: none;
-  transition: background .12s;
+  padding: 10px 14px; cursor: pointer; user-select: none; transition: background .12s;
 }
 .bst-comp-head:hover { background: #ffffff08; }
 .bst-comp-icon { font-size: 1rem; }
@@ -651,14 +805,8 @@ function renderBuyScanAlertBanner(alerts) {
 .sm-dot.mid  { background: #f1c40f; }
 .sm-dot.bad  { background: #e74c3c; }
 .sm-body    { flex: 1; min-width: 0; }
-.sm-top     { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
-.sm-label   { font-size: 0.8rem; }
-.sm-value   { font-size: 0.78rem; font-weight: 600; margin-left: auto; }
-.sm-value.good { color: #2ecc71; }
-.sm-value.mid  { color: #f1c40f; }
-.sm-value.bad  { color: #e74c3c; }
-.sm-rule    { font-size: 0.72rem; color: var(--muted); margin-bottom: 2px; }
-.sm-why     { font-size: 0.71rem; color: #aaa; line-height: 1.45; }
+.sm-top     { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.sm-label   { font-size: 0.8rem; line-height: 1.45; }
 
 .disclaimer {
   font-size: 0.69rem; color: var(--muted); padding: 10px 14px;
