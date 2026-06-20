@@ -20,8 +20,21 @@
 .macro-chip .label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
 .macro-chip .price { font-size: 1.02rem; font-weight: 700; margin-top: 2px; white-space: nowrap; }
 .macro-chip .chg { font-size: 0.78rem; white-space: nowrap; }
-.macro-chip.clickable { cursor: pointer; transition: border-color 0.15s, transform 0.1s; }
+.macro-chip.clickable { cursor: pointer; transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s; }
 .macro-chip.clickable:hover { border-color: var(--accent); transform: translateY(-1px); }
+/* 급등/급락 하이라이트 (±3% 이상) */
+.macro-chip.chip-surge {
+  border-color: rgba(240,69,79,0.6);
+  background: linear-gradient(158deg, rgba(240,69,79,0.1), var(--card));
+  box-shadow: 0 0 0 1px rgba(240,69,79,0.25);
+}
+.macro-chip.chip-surge .label::after { content: ' 🔥'; }
+.macro-chip.chip-plunge {
+  border-color: rgba(49,130,246,0.6);
+  background: linear-gradient(158deg, rgba(49,130,246,0.1), var(--card));
+  box-shadow: 0 0 0 1px rgba(49,130,246,0.25);
+}
+.macro-chip.chip-plunge .label::after { content: ' 📉'; }
 .macro-chip .ov-tag {
   display: inline-block; font-size: 0.62rem; font-weight: 700;
   border-radius: 4px; padding: 0 5px; margin-top: 4px;

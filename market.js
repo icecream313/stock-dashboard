@@ -29,20 +29,38 @@ async function renderMacro(noCache) {
     });
   }
   try {
-    const data = await fetchSpark(MACRO.map(m => m.symbol), '1d', '15m', noCache);
+    const sparkSyms = MACRO.filter(m => !m.chartOnly).map(m => m.symbol);
+    const chartMacros = MACRO.filter(m => m.chartOnly);
+    // 스파크 API와 차트 API 결과를 완전히 분리된 객체에 저장 (old 캐시 오염 방지)
+    const [sparkData, chartData] = await Promise.all([
+      fetchSpark(sparkSyms, '1d', '15m', noCache),
+      Promise.all(chartMacros.map(async m => {
+        try {
+          const r = await fetchChart(m.symbol, '5d', '1d', noCache);
+          const price = r.meta?.regularMarketPrice ?? lastValid(r.indicators?.quote?.[0]?.close);
+          const prev = r.meta?.chartPreviousClose ?? r.meta?.previousClose;
+          return [m.symbol, { close: [price], previousClose: prev }];
+        } catch (e) { return [m.symbol, null]; }
+      })).then(entries => Object.fromEntries(entries))
+    ]);
     MACRO.forEach(m => {
       const chip = document.getElementById('macro-' + m.symbol.replace(/[^A-Za-z0-9]/g, ''));
       if (!chip) return;
-      const d = data[m.symbol];
+      const d = m.chartOnly ? chartData[m.symbol] : sparkData[m.symbol];
       if (!d) { chip.querySelector('.price').textContent = '—'; return; }
-      const price = lastValid(d.close);
+      const price = m.chartOnly ? (d.close[0] ?? null) : lastValid(d.close);
       if (m.symbol === 'KRW=X' && price) { usdkrw = price; updatePortfolio(); }
       macroData[m.symbol] = { price, prev: d.previousClose };
       const c = chgInfo(price, d.previousClose);
-      chip.querySelector('.price').textContent = m.fmt === 'pct' ? price.toFixed(2) + '%' : fmtPrice(price, m.symbol, m.fmt);
+      chip.querySelector('.price').textContent = m.fmt === 'pct' ? price != null ? price.toFixed(2) + '%' : '—' : fmtPrice(price, m.symbol, m.fmt);
       const chg = chip.querySelector('.chg');
       chg.className = 'chg ' + c.cls;
       chg.textContent = c.text;
+      // 급등/급락 하이라이트 (±3% 이상)
+      const pct = (price != null && d.previousClose) ? (price - d.previousClose) / d.previousClose * 100 : 0;
+      chip.classList.remove('chip-surge', 'chip-plunge');
+      if (pct >= 3) chip.classList.add('chip-surge');
+      else if (pct <= -3) chip.classList.add('chip-plunge');
     });
     const sub = document.getElementById('macro-pb-sub');
     if (sub) sub.innerHTML = '지수·환율·금리·원자재 · 칩을 누르면 차트와 과열 분석이 열립니다 · <span style="color:var(--accent)">🕒 기준 ' + fmtClock(Date.now()) + '</span>';
