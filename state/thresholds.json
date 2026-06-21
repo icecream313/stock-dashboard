@@ -1,0 +1,33 @@
+{
+  "updated": "2026-06-21T10:58:44.660739+00:00",
+  "method": "backtest_calibration",
+  "calib_horizon": 10,
+  "values": {
+    "plunge": -7.0,
+    "rsi_os": 30.0,
+    "bb_lower": true,
+    "w52_low": 1.05
+  },
+  "evidence": {
+    "plunge": {
+      "n": 22,
+      "hit": 72.7,
+      "avg": 8.56
+    },
+    "rsi_os": {
+      "n": 12,
+      "hit": 41.7,
+      "avg": -0.26
+    },
+    "bb_lower": {
+      "n": 23,
+      "hit": 69.6,
+      "avg": 5.07
+    },
+    "w52_low": {
+      "n": 20,
+      "hit": 30.0,
+      "avg": -2.94
+    }
+  }
+}
